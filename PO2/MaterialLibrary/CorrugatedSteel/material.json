@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 20,
+    "id": "po2/metal/corrugated-steel",
+    "displayName": "Corrugated Steel",
+    "category": "Metal",
+    "textures": {
+        "baseColor": "Source/CorrugatedSteel_BaseColor.png",
+        "normal": "Source/CorrugatedSteel_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 1.75,
+        "heightMeters": 1.75
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 1,
+        "smoothness": 0.25,
+        "coat": 0.05,
+        "normalMode": "TangentSpace"
+    }
+}

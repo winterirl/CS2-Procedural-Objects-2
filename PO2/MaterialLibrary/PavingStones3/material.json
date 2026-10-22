@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 50,
+    "id": "po2/masonry/paving-stones-3",
+    "displayName": "Paving Stones 3",
+    "category": "Masonry",
+    "textures": {
+        "baseColor": "Source/PavingStones3_BaseColor.png",
+        "normal": "Source/PavingStones3_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 3.5,
+        "heightMeters": 3.5
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.06,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

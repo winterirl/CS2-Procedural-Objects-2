@@ -1,0 +1,35 @@
+@use "../../styles/typography" as type;
+
+:global(.po2-ui) {
+    // Native menu owns the surface and interaction colors. All sidebar buttons
+    // share these dimensions; their containers own the space between buttons.
+    .menuButton {
+        height: auto;
+        min-height: 0;
+        margin: 0;
+        padding: 3rem 10rem;
+        border: 1rem solid transparent;
+        border-radius: 3rem;
+        box-sizing: border-box;
+        font-size: type.$panel-base;
+        font-weight: type.$weight;
+        line-height: 1.2;
+        text-transform: uppercase;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: type.$normal;
+        line-height: 1.2;
+    }
+
+    .menuButton[data-po2-selected="true"] {
+        border-color: #c8cacd;
+    }
+}

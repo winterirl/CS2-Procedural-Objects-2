@@ -1,0 +1,13 @@
+#pragma kernel ApplySourcePatches
+#pragma kernel UpdateCandidates
+#pragma kernel UpdateFacing
+#pragma kernel UpdateTriangles
+#pragma kernel RefitNodes
+#pragma kernel Classify
+#pragma kernel ClassifyXRay
+#pragma kernel PickDistances
+#pragma kernel PickMinimum
+#pragma kernel PickWinners
+#pragma kernel PickResolve
+#pragma kernel BoxQuery
+#include "PO2Solid.compute.hlsl"

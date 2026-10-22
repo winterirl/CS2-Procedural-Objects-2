@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 10,
+    "id": "po2/asphalt/asphalt-1",
+    "displayName": "Asphalt 1",
+    "category": "Asphalt",
+    "textures": {
+        "baseColor": "Source/Asphalt1_BaseColor.png",
+        "normal": "Source/Asphalt1_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 1.25,
+        "heightMeters": 1.25
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.08,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

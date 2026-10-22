@@ -1,0 +1,34 @@
+$space-1: 2rem;
+$space-2: 4rem;
+$space-3: 6rem;
+$space-4: 8rem;
+$space-5: 12rem;
+$space-6: 16rem;
+
+$control-height: 26rem;
+$toolbar-height: 45rem;
+$panel-width: 324rem;
+$panel-wide-width: 472rem;
+
+$radius-small: 3rem;
+$radius-medium: 5rem;
+
+$color-surface: rgba(19, 27, 31, 0.96);
+$color-surface-raised: rgba(33, 44, 49, 0.98);
+$color-control: rgba(255, 255, 255, 0.08);
+$color-control-hover: rgba(255, 255, 255, 0.14);
+$color-border: rgba(255, 255, 255, 0.15);
+$color-divider: rgba(255, 255, 255, 0.11);
+$color-text: rgba(255, 255, 255, 0.95);
+$color-text-muted: rgba(255, 255, 255, 0.68);
+$color-accent-dark: #4258da;
+$color-accent-light: #4bc3f1;
+$color-accent: $color-accent-light;
+$color-accent-muted: rgba(75, 195, 241, 0.22);
+$color-warning: #e5b85c;
+$color-danger: #df6d6d;
+$color-focus: #ffffff;
+
+$z-selection: 10000;
+$z-shell: 10100;
+$z-popover: 10110;

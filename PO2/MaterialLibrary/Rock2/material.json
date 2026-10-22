@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 70,
+    "id": "po2/gravel/rock-2",
+    "displayName": "Rock 2",
+    "category": "rock",
+    "textures": {
+        "baseColor": "Source/Rock2_BaseColor.png",
+        "normal": "Source/Rock2_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 2,
+        "heightMeters": 2
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0.05,
+        "smoothness": 0,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

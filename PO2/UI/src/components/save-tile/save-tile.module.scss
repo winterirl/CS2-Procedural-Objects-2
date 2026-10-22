@@ -1,0 +1,49 @@
+@use "../../styles/tokens" as *;
+
+.list,
+.tile {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+:global(.po2-ui) .list > * + *,
+:global(.po2-ui) .tile > * + * {
+    margin-top: $space-2;
+}
+
+.tile {
+    padding: $space-3;
+    border-radius: $radius-small;
+    background-color: $color-control;
+    flex: 0 0 auto;
+}
+
+.detail {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+}
+
+.field-name {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.value {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.detail .value {
+    flex: 1 1 auto;
+    margin-left: 4rem;
+}
+
+.stats {
+    display: flex;
+    justify-content: space-between;
+}

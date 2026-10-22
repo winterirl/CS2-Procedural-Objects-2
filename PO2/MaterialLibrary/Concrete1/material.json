@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 30,
+    "id": "po2/concrete/concrete-1",
+    "displayName": "Concrete 1",
+    "category": "Concrete",
+    "textures": {
+        "baseColor": "Source/Concrete1_BaseColor.png",
+        "normal": "Source/Concrete1_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 3,
+        "heightMeters": 3
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.08,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

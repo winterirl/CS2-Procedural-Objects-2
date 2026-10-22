@@ -1,0 +1,28 @@
+:global(.po2-ui) {
+    .button {
+        width: 26rem;
+        height: 26rem;
+        min-height: 0;
+        flex: 0 0 26rem;
+        padding: 4rem;
+        margin: 0;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .icon {
+        width: 18rem;
+        height: 18rem;
+        flex: 0 0 18rem;
+        transform-origin: center;
+    }
+
+    .previous {
+        transform: rotate(90deg);
+    }
+    .next {
+        transform: rotate(-90deg);
+    }
+}

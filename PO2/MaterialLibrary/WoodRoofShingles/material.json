@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 90,
+    "id": "po2/wood/roof-shingles",
+    "displayName": "Wood Roof Shingles",
+    "category": "Wood",
+    "textures": {
+        "baseColor": "Source/WoodRoofShingles_BaseColor.png",
+        "normal": "Source/WoodRoofShingles_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 2.5,
+        "heightMeters": 2.5
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.08,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

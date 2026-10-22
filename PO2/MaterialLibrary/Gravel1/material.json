@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 70,
+    "id": "po2/gravel/gravel-1",
+    "displayName": "Gravel 1",
+    "category": "gravel",
+    "textures": {
+        "baseColor": "Source/Gravel1_BaseColor.png",
+        "normal": "Source/Gravel1_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 0.75,
+        "heightMeters": 0.75
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

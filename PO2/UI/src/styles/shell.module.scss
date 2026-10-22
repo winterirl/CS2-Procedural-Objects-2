@@ -1,0 +1,206 @@
+@use "tokens" as *;
+
+:global(.po2-ui) {
+    .root {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: $z-shell;
+        pointer-events: none;
+        color: $color-text;
+    }
+
+    .toolbar-slot,
+    .panel-slot,
+    .button-root {
+        pointer-events: none;
+    }
+
+    .panel-slot {
+        position: fixed;
+        top: 155rem;
+        left: 10rem;
+        display: flex;
+    }
+
+    .launcher-button {
+        pointer-events: auto;
+    }
+
+    .launcher-button > div {
+        width: 72%;
+        height: 72%;
+    }
+
+    .content {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .content > * + * {
+        margin-top: 3rem;
+    }
+
+    .empty-state {
+        padding: $space-4 3rem;
+        color: $color-text-muted;
+        text-align: center;
+    }
+
+    .box-selection-rect {
+        position: fixed;
+        z-index: $z-selection;
+        pointer-events: none;
+        border: 1rem solid rgba(255, 255, 255, 0.9);
+        background-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .context-summary {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .context-summary > * + * {
+        margin-top: $space-1;
+    }
+
+    .context-summary-inline {
+        flex-direction: row;
+        align-items: center;
+        width: 100%;
+    }
+
+    .context-summary-inline > * + * {
+        margin-top: 0;
+        margin-left: $space-3;
+    }
+
+    .context-summary-inline .context-primary {
+        flex: 0 0 auto;
+    }
+
+    .context-summary-inline .context-meta {
+        display: block;
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .context-primary {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        color: $color-text;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .context-meta{
+        color: $color-text-muted;
+    }
+
+    // Native Panel supplies the surface and header; keep only our shell sizing.
+    .workspace-panel {
+        width: $panel-width;
+        max-height: 66vh;
+        min-height: 0;
+        pointer-events: auto;
+    }
+
+    .workspace-panel .workspace-panel-content {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    // Fit short workspaces to their contents; scroll only above this limit.
+    .workspace-panel .workspace-panel-scroll {
+        flex: 0 1 auto;
+        height: auto;
+        max-height: 56vh;
+    }
+
+    .workspace-panel-scroll-content {
+        padding: $space-3;
+    }
+
+    .workspace-panel-wide {
+        width: $panel-wide-width;
+    }
+
+    .workspace-panel-context {
+        flex: 0 0 auto;
+        padding: $space-3 $space-4;
+    }
+
+    .workspace-panel-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        padding: $space-3;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .workspace-panel-status {
+        flex: 0 0 auto;
+        padding: 0 $space-3 $space-3;
+
+        // Some callers pass a fragment even when there is no status to show.
+        &:empty {
+            display: none;
+        }
+    }
+
+    @media (max-width: 1920px), (max-height: 1080px) {
+        .workspace-panel {
+            width: 308rem;
+        }
+
+        .workspace-panel-wide {
+            width: 448rem;
+        }
+    }
+
+    .historyStatus {
+        padding: 8rem 12rem;
+        background-color: rgba(20, 24, 32, 0.95);
+        color: white;
+    }
+}
+
+// This root is itself the scope when the game mounts portal children separately.
+:global(.po2-ui).root {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: $z-shell;
+    pointer-events: none;
+    color: $color-text;
+}
+
+
+:global(.po2-ui) {
+    .workspace-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .help-slot {
+        position: fixed;
+        top: 155rem;
+        right: 10rem;
+        z-index: $z-shell;
+        pointer-events: none;
+    }
+}

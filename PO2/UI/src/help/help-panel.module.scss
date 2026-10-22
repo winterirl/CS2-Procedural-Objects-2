@@ -1,0 +1,36 @@
+@use "../styles/typography" as type;
+
+:global(.po2-ui) {
+    .close {
+        width: 22rem;
+        height: 22rem;
+        min-width: 22rem;
+        padding: 3rem;
+        box-sizing: border-box;
+        margin-left: 6rem;
+        flex-shrink: 0;
+    }
+
+    .close > * {
+        max-width: 16rem;
+        max-height: 16rem;
+    }
+
+    .prose {
+        overflow-wrap: anywhere;
+        p, ul, ol, blockquote, pre, table { margin: 0 0 8rem; }
+        h1, h2, h3, h4, h5, h6 {
+            font-size: type.$panel-base;
+            margin: 10rem 0 6rem;
+        }
+        > :first-child { margin-top: 0; }
+        ul, ol { padding-left: 18rem; }
+        li + li { margin-top: 3rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 3rem; vertical-align: top; }
+        pre { white-space: pre-wrap; }
+        img { max-width: 100%; }
+    }
+
+    .actions { margin-top: 6rem; }
+}

@@ -1,0 +1,35 @@
+:global(.po2-ui) {
+    // Positioning only. Keep legacy colors and typography out of this root.
+    .root {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        pointer-events: none;
+    }
+
+    .stack {
+        position: fixed;
+        top: 55rem;
+        left: 10rem;
+        right: 10rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        // Give centered panels a stable available width before measuring their contents.
+        width: auto;
+        overflow: visible;
+        pointer-events: none;
+    }
+}
+
+// The portal's toolbar root carries the scope itself; descendants use the rules above.
+:global(.po2-ui).root {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    pointer-events: none;
+}

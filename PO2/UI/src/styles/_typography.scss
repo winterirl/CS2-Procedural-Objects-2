@@ -1,0 +1,9 @@
+// All type sizes come from the panel base. Resolve the ratios here so text
+// nested inside labels, hints, or buttons cannot shrink a second time.
+$panel-base: 14rem;
+$normal-ratio: .85;
+$small-ratio: .75;
+$normal: $panel-base * $normal-ratio;
+$small: $panel-base * $small-ratio;
+$weight: 400;
+$line-height: 1.3;

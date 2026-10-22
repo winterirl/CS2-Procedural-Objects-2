@@ -1,0 +1,139 @@
+@use "../styles/typography" as type;
+
+:global(.po2-ui) {
+    .anchor {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .position {
+        flex: 0 0 auto;
+        max-width: 100%;
+        max-height: 65vh;
+        overflow-y: auto;
+        margin-top: 6rem;
+        pointer-events: auto;
+    }
+
+    .panel {
+        font-size: type.$panel-base;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: visible;
+    }
+
+    .axesPanel {
+        width: 300rem;
+        position: absolute;
+        top: 0;
+        right: 0;
+    }
+
+    .snapPanel {
+        width: 300rem;
+        position: absolute;
+        top: 0;
+        right: 0;
+    }
+
+    .panel .content {
+        font-size: type.$normal;
+        padding: 8rem;
+        height: auto;
+        max-height: none;
+        overflow: visible;
+        flex: 0 0 auto;
+    }
+
+    .snapSettings,
+    .targetGrid,
+    .increment-settings {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .snapSettings > * + *,
+    .increment-settings > * + * {
+        margin-top: 8rem;
+    }
+
+    .targetGrid > * + * { margin-top: 4rem; }
+
+    .snapHeader,
+    .targetRow,
+    .increment-header,
+    .increment-row {
+        display: flex;
+        align-items: center;
+    }
+
+    .snapHeader { justify-content: space-between; }
+    .targetRow { align-items: stretch; }
+
+    // Native menu buttons can carry vertical sibling spacing; these rows are horizontal.
+    .panel .targetRow > .targetButton,
+    .panel .snapHeader > .textButton {
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+
+    .targetRow > * + * { margin-left: 4rem; }
+
+    .button,
+    .textButton,
+    .targetButton,
+    .wideButton {
+        height: auto;
+        min-height: 28rem;
+        padding: 4rem 8rem;
+        border: 1rem solid transparent;
+        border-radius: 3rem;
+        font-size: 1em;
+        box-sizing: border-box;
+    }
+
+    .panel [data-po2-selected="true"] { border-color: #c8cacd; }
+    // Explicit rows avoid percentage-width wrapping during native panel measurement.
+    .orientationList {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .orientationRow {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: stretch;
+    }
+
+    .orientationRow + .orientationRow { margin-top: 4rem; }
+    .orientationCell { display: flex; flex: 1 1 0; min-width: 0; }
+    .orientationCell + .orientationCell { margin-left: 4rem; }
+
+    .panel .orientationCell > .button {
+        flex: 1 1 0;
+        min-width: 0;
+        margin: 0;
+    }
+
+    .targetButton { flex: 1 1 0; min-width: 0; }
+    .wideButton { width: 100%; }
+    .incrementToggle { align-self: flex-start; }
+    .snapHint { font-size: type.$small; line-height: 1.3; opacity: .8; }
+    .target-header { font-weight: type.$weight; }
+
+    .increment-header > *,
+    .increment-row > * {
+        flex: 1 1 0;
+        min-width: 0;
+        margin-left: 6rem;
+    }
+
+    .increment-header > :first-child,
+    .increment-row > :first-child {
+        flex: 0 0 72rem;
+        margin-left: 0;
+    }
+
+    .increment-header { font-size: type.$normal; text-align: center; }
+}

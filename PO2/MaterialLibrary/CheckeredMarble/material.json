@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 50,
+    "id": "po2/masonry/checkered-marble",
+    "displayName": "Checkered Marble",
+    "category": "Masonry",
+    "textures": {
+        "baseColor": "Source/CheckeredMarble_BaseColor.png",
+        "normal": "Source/CheckeredMarble_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 3.5,
+        "heightMeters": 3.5
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.06,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

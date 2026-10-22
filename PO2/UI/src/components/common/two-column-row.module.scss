@@ -1,0 +1,30 @@
+:global(.po2-ui) {
+    .row {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: flex-end;
+        width: 100%;
+        min-width: 0;
+    }
+
+    // Divide the row between plain containers, then let each control fill one.
+    .cell {
+        flex: 1 1 0;
+        width: 0;
+        min-width: 0;
+    }
+
+    .cell + .cell {
+        margin-left: 3rem;
+    }
+
+    .cell > * {
+        width: 100%;
+    }
+
+    .cell > label {
+        display: flex;
+        flex-direction: column;
+    }
+}

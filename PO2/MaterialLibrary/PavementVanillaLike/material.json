@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 10,
+    "id": "po2/asphalt/pavement-vanilla-like",
+    "displayName": "G87 Pavement Vanilla-Like",
+    "category": "Concrete",
+    "textures": {
+        "baseColor": "Source/PavementV_BaseColor.png",
+        "normal": "Source/PavementV_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 3,
+        "heightMeters": 3
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0.05,
+        "smoothness": 0.2,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

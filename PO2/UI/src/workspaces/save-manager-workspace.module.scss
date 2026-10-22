@@ -1,0 +1,80 @@
+@use "../styles/tokens" as *;
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+:global(.po2-ui) .controls > * + * {
+    margin-top: $space-2;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.row > * { min-width: 0; }
+:global(.po2-ui) .row > * + * { margin-left: $space-2; }
+.row > button { flex: 1 1 auto; }
+.choice { flex: 1 1 0; min-width: 0; }
+.choice > * { width: 100%; }
+.choice button { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.popup { max-width: 460rem; font-size: 13rem; }
+.summary, .muted, .identities { font-size: 12rem; }
+.muted { color: $color-text-muted; }
+// A game button supplies selection input; the box is drawn without an HTML input.
+:global(.po2-ui) .row > .selection {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 0;
+    background-color: transparent;
+    color: $color-text;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 16rem;
+    width: 16rem;
+    height: 16rem;
+    margin-right: $space-2;
+    border: 1rem solid $color-text-muted;
+    border-radius: 2rem;
+    background-color: $color-control;
+}
+
+.selection[aria-checked="true"] .checkbox {
+    border-color: $color-accent;
+    background-color: $color-accent-muted;
+}
+
+.selection:disabled { opacity: 0.45; }
+.selection:hover:not(:disabled) .checkbox { border-color: $color-focus; }
+.selection:focus .checkbox { border-color: $color-focus; }
+
+.checkmark {
+    width: 5rem;
+    height: 9rem;
+    margin-top: -2rem;
+    border-right: 2rem solid $color-text;
+    border-bottom: 2rem solid $color-text;
+    transform: rotate(45deg);
+}
+.tag { flex: 1 1 auto; text-align: right; color: $color-text-muted; }
+.message { white-space: pre-wrap; overflow-wrap: break-word; }
+.identities { overflow-wrap: break-word; }
+
+.confirmation {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 10200;
+    pointer-events: auto;
+}

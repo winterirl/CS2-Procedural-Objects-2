@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 80,
+    "id": "po2/wood/wood-siding-1",
+    "displayName": "Wood Siding 1",
+    "category": "Wood",
+    "textures": {
+        "baseColor": "Source/WoodSiding1_BaseColor.png",
+        "normal": "Source/WoodSiding1_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 1.5,
+        "heightMeters": 1.5
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.12,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

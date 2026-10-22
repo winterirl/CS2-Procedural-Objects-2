@@ -1,0 +1,309 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <DefineConstants>PO2_REAL_TOPOLOGY;PO2_RENDERER_CORRECTION_TESTS;PO2_ARRAY_SYSTEM</DefineConstants>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Nullable>disable</Nullable>
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="../../Core/Lod/*.cs" />
+        <Compile Include="../../Core/ProceduralObject.Lod.cs" />
+        <Compile Include="../../Persistence/Format/LodProfileCodec.cs" />
+        <Compile Include="../../Localization/LocalizedText.cs" />
+        <Compile Include="../../Core/OperationOutcome.cs" />
+        <Compile Include="../../Conversion/AssetConversionStatus.cs" />
+        <Compile Include="../../Interface/Models/MaterialImportNotice.cs" />
+        <Compile Include="OperationStateTests.cs" />
+        <Compile Include="../../Core/Operations/ObjectClipboard.cs" />
+        <Compile Include="../../Core/Operations/ObjectClipboardCapture.cs" />
+        <Compile Include="../../Core/ProceduralObjectSystem.Clipboard.cs" />
+        <Compile Include="ClipboardSystemStubs.cs" />
+        <Compile Include="ClipboardTests.cs" />
+        <Compile Include="../../Core/Operations/IArrayRemoval.cs" />
+        <Compile Include="../../Core/Operations/ArrayKernels.cs" />
+        <Compile Include="../../Core/ProceduralObject.PartBatch.cs" />
+        <Compile Include="../../Core/Operations/PartArrayPreparation.cs" />
+        <Compile Include="../../Tools/Arrays/PartArrayBezier.cs" />
+        <Compile Include="../../Tools/Arrays/PartArrayLayout.cs" />
+        <Compile Include="../../Tools/Arrays/PartArrayCurve.cs" />
+        <Compile Include="../../Tools/Arrays/PartArrayPathMath.cs" />
+        <Compile Include="../../Tools/Arrays/PartArrayCurveWorker.cs" />
+        <Compile Include="../../Tools/Arrays/PartArrayCurveMath.cs" />
+        <Compile Include="../../Tools/Arrays/PartArrayCurveLayout.cs" />
+        <Compile Include="../../Tools/Arrays/PartArrayPlacements.cs" />
+        <Compile Include="../History/ArrayRuntimeStubs.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.PartBatch.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.ArrayPreview.cs" />
+        <Compile Include="ArrayTests.cs" />
+        <Compile Include="ArrayRotationTests.cs" />
+        <Compile Include="ArrayCurvePreviewTests.cs" />
+        <Compile Include="ArrayCurveApplyTests.cs" />
+        <Compile Include="ArraySystemStubs.cs" />
+        <Compile Include="../../Core/ProceduralObjectSystem.Array.cs" />
+        <Compile Include="../../Tools/Snapping/MeshTranslationSnapVertex.cs" />
+        <Compile Include="../../Tools/Snapping/TranslationSnapBuildKernels.cs" />
+        <Compile Include="../../Tools/Snapping/MeshTranslationSnapBudget.cs" />
+        <Compile Include="../../Tools/Snapping/MeshSnapTargetFilter.cs" />
+        <Compile Include="../../Tools/Snapping/MeshTranslationSnapInputGate.cs" />
+        <Compile Include="../../Tools/Snapping/MeshTranslationSnapTargetSession.cs" />
+        <Compile Include="../../Tools/Snapping/TranslationSnapState.cs" />
+        <Compile Include="../../Tools/Snapping/SnapTarget.cs" />
+        <Compile Include="../../Tools/Snapping/SnapTargetKind.cs" />
+        <Compile Include="../../Tools/Snapping/SnapSettings.cs" />
+
+        <Compile Include="../../Tools/Snapping/ITranslationSnapSource.cs" />
+        <Compile Include="../../Tools/Snapping/TranslationSnapSource.cs" />
+        <Compile Include="../../Tools/Snapping/TranslationSnapSourceData.cs" />
+        <Compile Include="../../Tools/Snapping/MeshTranslationSnapCapture.cs" />
+        <Compile Include="../../Tools/Snapping/MeshTranslationSnapPreparation.cs" />
+        <Compile Include="TranslationSnapSourceTests.cs" />
+        <Compile Include="VertexHistoryPreparationTests.cs" />
+        <Compile Include="VertexHistoryControllerTests.cs" />
+        <Compile Include="HistoryValidationTests.cs" />
+        <Compile Include="../../Tools/MeshEdit/MeshEditController.History.cs" />
+        <Compile Include="LargeSnapTests.cs" />
+        <Compile Include="TranslationSnapPreparationTests.cs" />
+        <Compile Include="TranslationSnapToolTests.cs" />
+        <Compile Include="TranslationSnapToolStubs.cs" />
+        <Compile Include="../../Tools/ObjectTool/ProceduralObjectToolSystem.MeshSnapping.cs" />
+        <Compile Include="../../History/HistoryFileStore.cs" />
+        <Compile Include="../../History/Actions/PartTransformAction.cs" />
+        <Compile Include="../../History/ActionHistory.cs" />
+        <Compile Include="../../History/Actions/TopologyAction.cs" />
+        <Compile Include="../../History/VertexHistoryKernels.cs" />
+        <Compile Include="../../History/TopologyPreparedSelection.cs" />
+        <Compile Include="../../History/HistoryContext.cs" />
+        <Compile Include="../../History/Actions/FocusedHistoryAction.cs" />
+        <Compile Include="../../History/HistoryResidentPayload.cs" />
+        <Compile Include="../../History/Actions/PartNameAction.cs" />
+        <Compile Include="../../History/MirrorDelta.cs" />
+        <Compile Include="../../History/HistoryTransaction.cs" />
+        <Compile Include="../../History/TopologyState.cs" />
+        <Compile Include="../../History/Actions/ObjectValueAction.cs" />
+        <Compile Include="../../History/HistoryHash.cs" />
+        <Compile Include="../../History/Actions/VertexPatchAction.cs" />
+        <Compile Include="../../History/Actions/CompoundHistoryAction.cs" />
+        <Compile Include="../../History/HistoryIdentityManifest.cs" />
+        <Compile Include="../../History/HistoryLayoutCache.cs" />
+        <Compile Include="../../History/HistoryBoundaryKernels.cs" />
+        <Compile Include="../../History/HistoryEdit.cs" />
+        <Compile Include="../../History/TopologyTargetStamp.cs" />
+        <Compile Include="../../History/HistoryContracts.cs" />
+        <Compile Include="../../History/Actions/PartPivotAction.cs" />
+        <Compile Include="../../History/Actions/SurfaceAreaAction.cs" />
+        <Compile Include="../../History/MirrorHistoryKernels.cs" />
+        <Compile Include="../../History/TopologySelection.cs" />
+        <Compile Include="../../History/Actions/HistoryCaptureAction.cs" />
+        <Compile Include="../../History/Actions/PartDeformationDeltaAction.cs" />
+        <Compile Include="../../History/ReversibleTopologyDelta.cs" />
+        <Compile Include="../../History/HistoryPayloads.cs" />
+        <Compile Include="../../History/Actions/AppearanceAction.cs" />
+        <Compile Include="../../History/Actions/PartArrayAction.cs" />
+        <Compile Include="../../History/Actions/DeformationAction.cs" />
+        <Compile Include="../../History/GeometryStreams.cs" />
+        <Compile Include="../../History/Actions/LifetimeAction.cs" />
+        <Compile Include="../../History/VertexHistoryEdit.cs" />
+        <Compile Include="../../History/HistoryKeys.cs" />
+        <Compile Include="../../History/LifetimePayload.cs" />
+        <Compile Include="../../History/LifetimeStorage.cs" />
+        <Compile Include="../../Core/Operations/IHistoryObjectRenderer.cs" />
+        <Compile Include="../../Geometry/GeometryChange.cs" />
+        <Compile Include="../../Core/ProceduralObject.History.cs" />
+        <Compile Include="../../Geometry/Transforms/PivotTransformMath.cs" />
+        <Compile Include="../../Geometry/Transforms/PivotSelectionMath.cs" />
+        <Compile Include="../../Core/CustomOrientation.cs" />
+        <Compile Include="../../Core/Operations/PartGeometrySnapshot.cs" />
+        <Compile Include="../../Core/BudgetedCopy.cs" />
+        <Compile Include="../../Core/Operations/TopologySize.cs" />
+        <Compile Include="../../Core/Operations/TopologyPreparation.cs" />
+        <Compile Include="../../Core/Operations/TopologySnapshotCapture.cs" />
+        <Compile Include="../../Geometry/Transforms/PartGeometryTransform.cs" />
+        <Compile Include="../../Core/Deformation/DeformationCage.cs" />
+        <Compile Include="../../Core/Deformation/DeformationRecipe.cs" />
+        <Compile Include="../../Core/ProceduralObject.Deformation.cs" />
+        <Compile Include="../../Persistence/Format/DeformationCodec.cs" />
+        <Compile Include="../../Geometry/LocalNormals.cs" />
+        <Compile Include="../../Geometry/VertexEditLayout.cs" />
+        <Compile Include="../../Geometry/VertexEditPreparationKernels.cs" />
+        <Compile Include="../../Tools/MeshEdit/MeshVertexEditPreparation.cs" />
+        <Compile Include="../../Geometry/NormalUpdateKernels.cs" />
+        <Compile Include="../../Materials/SurfaceArea.cs" />
+        <Compile Include="../../Materials/GeneratedMappingSeed.cs" />
+        <Compile Include="../../Persistence/Format/GeneratedMappingSeedCodec.cs" />
+        <Compile Include="../../Materials/SurfaceArea.History.cs" />
+        <Compile Include="../../Materials/SurfaceAreaOriginalState.cs" />
+        <Compile Include="../../Materials/MaterialData.cs" />
+        <Compile Include="../../Materials/TextureMappingData.cs" />
+        <Compile Include="../../Materials/ColorMaskData.cs" />
+        <Compile Include="../../Materials/MaterialSourceKind.cs" />
+        <Compile Include="../../Materials/TextureMappingMode.cs" />
+        <Compile Include="../../Materials/ColorMaskMode.cs" />
+        <Compile Include="../../Materials/NativeWindowKind.cs" />
+        <Compile Include="../../Materials/VertexAttributeFlags.cs" />
+        <Compile Include="../../Materials/VanillaSpecialMaterialKind.cs" />
+        <Compile Include="../../Geometry/MeshPart.History.cs" />
+        <Compile Include="../../History/LifetimeModelCodec.cs" />
+        <Compile Include="../../Persistence/Model/PersistenceSnapshotData.cs" />
+        <Compile Include="../../Persistence/Format/ObjectBlockWriter.cs" />
+        <Compile Include="../../Persistence/Format/ObjectBlockReader.cs" />
+        <Compile Include="../../Persistence/Format/ObjectBlockCodec.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotEncoding.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotBinary.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotFormat.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotObjectMetrics.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotValidation.cs" />
+        <Compile Include="../../Persistence/Format/Crc32.cs" />
+        <Compile Include="../../Geometry/MeshPart.TopologyHistory.cs" />
+        <Compile Include="../../Tools/Gizmos/GizmoTypes.cs" />
+        <Compile Include="../../Tools/Gizmos/GizmoContext.cs" />
+        <Compile Include="../../Tools/Gizmos/TranslationConstraint.cs" />
+        <Compile Include="../../Tools/Gizmos/GizmoDragModifierState.cs" />
+        <Compile Include="../../Tools/Gizmos/CageDeformationCommitWorker.cs" />
+        <Compile Include="../../Rendering/DeformationRendererPreparation.cs" />
+        <Compile Include="../History/ModelStubs.cs" />
+        <Compile Include="../History/TopologyPreparationStubs.cs" />
+        <Compile Include="../History/RuntimeStubs.cs" />
+        <Compile Include="../../Tools/Gizmos/SelectionTransformMath.cs" />
+        <Compile Include="../../Tools/MeshEdit/VertexTransformDragState.cs" />
+        <Compile Include="../History/SelectionTransformStubs.cs" />
+        <Compile Include="../History/GeometryStubs.cs" />
+        <Compile Include="../../Geometry/MeshData.cs" />
+        <Compile Include="../../Geometry/MeshPart.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.Subdivision.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/MeshEditTypes.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/VertexDeletePlan.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.Preparation.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/MeshTopology.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralTopologySource.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralLoop.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralEdgeRef.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/SurfaceRef.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/Vertex.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/FaceExtrusionMutation.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/FaceInsetPlan.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/LogicalEdge.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralFaceTriangleResolver.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/SurfaceSelection.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.Cuts.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.Dissolve.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.LoopDissolve.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.SurfaceDissolve.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.VertexMerge.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.Loops.cs" />
+        <Compile Include="../../Geometry/Editing/LoopDissolvePlan.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/FaceInsetEditor.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/SubdivisionBasis.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.VertexDissolution.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/DissolveSegment.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/DissolvePolygon.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/FaceExtrusionEditor.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/FaceRegionAnalyzer.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.VertexDeletion.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/MeshMutationResult.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/FaceRegionPlan.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/SurfaceCutDissolvePlan.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/NativeMeshTopologyBuilder.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditCapabilities.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralTopology.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/VertexDissolvePlan.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/EdgeSubdivisionPlan.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralEdge.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/VertexMergePlan.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/VertexSelection.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/MeshTopology.Mirror.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralFaceRef.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/IndexSpan.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralTopology.Mirror.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralFace.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditIndex.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralFaceTriangles.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/CutLayout.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/TopologyEditor.VertexRemoval.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/VertexRef.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Editing/StructuralEdgeSelection.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralQuad.cs" Exclude="../../Geometry/Topology/NativeMeshTopologyBuilder.cs;../../Geometry/Editing/FaceInset*.cs" />
+        <Compile Include="../../Conversion/ConversionProfile.cs" />
+        <Compile Include="../../Conversion/ConvertedRenderPreparation.cs" />
+        <Compile Include="../../Rendering/Mapping/SurfaceTopology.cs" />
+        <Compile Include="../../Rendering/Mapping/GeneratedMapping.cs" />
+        <Compile Include="../../Rendering/TopologyRendererPreparation.cs" />
+        <Compile Include="../../Rendering/TopologyRendererValidation.cs" />
+        <Compile Include="../../Conversion/ConvertedStructuralTopologyBuilder.cs" />
+        <Compile Include="../../Conversion/ConvertedFaceInference.cs" />
+        <Compile Include="../../Tools/ObjectTool/ProceduralObjectToolSystem.Subdivision.cs" />
+        <Compile Include="../../Tools/ObjectTool/ProceduralObjectToolSystem.TopologyCapabilities.cs" />
+        <Compile Include="../../Core/ProceduralObjectSystem.HistoryEdits.cs" />
+        <Compile Include="../../Tools/MeshEdit/TopologyEditSession.cs" />
+        <Compile Include="ToolStubs.cs" />
+        <Compile Include="SubdivisionTestAdapter.cs" />
+        <Compile Include="ConvertedSubdivisionTests.cs" />
+        <Compile Include="../../Tools/ObjectTool/ProceduralObjectToolSystem.TopologyPreparation.cs" />
+        <Compile Include="../../Tools/MeshEdit/TopologySelectionCapture.cs" />
+        <Compile Include="../../Rendering/SubdivisionAppearanceCheck.cs" />
+        <Compile Include="PlatformStubs.cs" />
+        <Compile Include="RendererOwnerStubs.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.History.cs" />
+        <Compile Include="../../Geometry/Picking/ObjectPickCacheState.cs" />
+        <Compile Include="../../Geometry/Picking/ObjectPickCapture.cs" />
+        <Compile Include="../../Geometry/Picking/TrianglePickCache.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.Topology.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.GeometryUpdates.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.VertexStreams.cs" />
+        <Compile Include="../../Rendering/RenderVertexStreams.cs" />
+        <Compile Include="../../Rendering/RenderBounds.cs" />
+        <Compile Include="../../Rendering/RenderGeometryKernels.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.GeometryKernelUpdates.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.GeometryWorkPlan.cs" />
+        <Compile Include="../../Tools/MeshEdit/MeshSelectionCentroid.cs" />
+        <Compile Include="RendererBurstStubs.cs" />
+        <Compile Include="../../Rendering/RenderDirtyIndices.cs" />
+        <Compile Include="../../Geometry/Transforms/MirrorGeometry.cs" />
+        <Compile Include="../../Geometry/Transforms/MirrorKernels.cs" />
+        <Compile Include="../../Core/ProceduralObjectSystem.Mirror.cs" />
+        <Compile Include="../../History/Actions/MirrorHistoryAction.cs" />
+        <Compile Include="../../Core/Operations/TopologyBatchPreparation.cs" />
+        <Compile Include="../../Tools/ObjectTool/ProceduralObjectToolSystem.Mirror.cs" />
+        <Compile Include="../../Core/Operations/MirrorTopologySnapshot.cs" />
+        <Compile Include="../../Geometry/MeshPart.Mirror.cs" />
+        <Compile Include="MirrorTopologyReuseTests.cs" />
+        <Compile Include="MirrorTests.cs" />
+        <Compile Include="MirrorHistoryStorageTests.cs" />
+        <Compile Include="MirrorPreparationTests.cs" />
+        <Compile Include="WrappedPrimitiveTests.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveDefinition.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveParameters.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMesh.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.Stairs.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.Arch.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.Dome.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.Cone.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.Plane.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.Cylinder.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.Sphere.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.Gores.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.Box.cs" />
+        <Compile Include="../../Core/Primitives/PrimitiveMeshFactory.Wedge.cs" />
+        <Compile Include="MirrorSystemStubs.cs" />
+        <Compile Include="Program.cs" />
+        <Compile Include="MultiCutTests.cs" />
+        <Compile Include="../../Tools/MeshEdit/CutPreview.cs" />
+        <Compile Include="../../Tools/MeshEdit/LoopCutState.cs" />
+        <Compile Include="../../Tools/MeshEdit/SurfaceCutState.cs" />
+        <Compile Include="ResidualWorkTests.cs" />
+        <Compile Include="UV1Tests.cs" />
+        <Compile Include="VertexDeletionTests.cs" />
+        <Compile Include="VertexDissolutionTests.cs" />
+        <Compile Include="TopologyRendererTests.cs" />
+        <Compile Include="HistoryRendererTests.cs" />
+        <Compile Include="RendererUpdateTests.cs" />
+        <Compile Include="RendererCorrectionTests.cs" />
+        <Compile Include="DissolvePolygonTests.cs" />
+        <Compile Include="../../Tools/ObjectTool/ProceduralObjectToolSystem.VertexRemoval.cs" />
+        <Compile Include="../../Rendering/RenderGeometryPreparation.cs" />
+    </ItemGroup>
+</Project>

@@ -1,0 +1,26 @@
+import { bindScopedValue } from "@/bindings/scoped-value";
+import { group } from "./commands";
+
+export const selectedSurfaceAreaIds$ = bindScopedValue<number[]>(group, "selectedSurfaceAreaIds", []);
+export const selectedSurfaceAreaId$ = bindScopedValue<number>(group, "selectedSurfaceAreaId", -1);
+export const selectedSurfaceAreaCount$ = bindScopedValue<number>(group, "selectedSurfaceAreaCount", 0);
+export const mappingMode$ = bindScopedValue<number>(group, "mappingMode", 0);
+export const mappingTextureWidth$ = bindScopedValue<number>(group, "mappingTextureWidth", 1);
+export const mappingTextureHeight$ = bindScopedValue<number>(group, "mappingTextureHeight", 1);
+export const mappingOffsetU$ = bindScopedValue<number>(group, "mappingOffsetU", 0);
+export const mappingOffsetV$ = bindScopedValue<number>(group, "mappingOffsetV", 0);
+export const mappingRotation$ = bindScopedValue<number>(group, "mappingRotation", 0);
+export const colorMaskMode$ = bindScopedValue<number>(group, "colorMaskMode", 0);
+export const colorMaskHasSource$ = bindScopedValue<boolean>(group, "colorMaskHasSource", false);
+export const surfaceAreaHasOriginalAppearance$ = bindScopedValue<boolean>(group, "surfaceAreaHasOriginalAppearance", false);
+export const colorMask1Hex$ = bindScopedValue<string>(group, "colorMask1Hex", "#FFFFFF");
+export const colorMask2Hex$ = bindScopedValue<string>(group, "colorMask2Hex", "#FFFFFF");
+export const colorMask3Hex$ = bindScopedValue<string>(group, "colorMask3Hex", "#FFFFFF");
+export const libraryMaterialCount$ = bindScopedValue<number>(group, "libraryMaterialCount", 0);
+export const selectedLibraryMaterialIndex$ = bindScopedValue<number>(group, "selectedLibraryMaterialIndex", -1);
+export const selectedMaterialName$ = bindScopedValue<string>(group, "selectedMaterialName", "None");
+export const selectedMaterialSourceKind$ = bindScopedValue<number>(group, "selectedMaterialSourceKind", -1);
+export const selectedVanillaSpecialMaterialKind$ = bindScopedValue<number>(group, "selectedVanillaSpecialMaterialKind", 0);
+export const materialMetallic$ = bindScopedValue<number>(group, "materialMetallic", 0);
+export const materialSmoothness$ = bindScopedValue<number>(group, "materialSmoothness", 0);
+export const materialCoatStrength$ = bindScopedValue<number>(group, "materialCoatStrength", 0);

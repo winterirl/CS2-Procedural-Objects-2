@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 20,
+    "id": "po2/metal/rusty-metal",
+    "displayName": "Rusty Metal",
+    "category": "Metal",
+    "textures": {
+        "baseColor": "Source/RustyMetal_BaseColor.png",
+        "normal": "Source/RustyMetal_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 0.75,
+        "heightMeters": 0.75
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 1,
+        "smoothness": 0.25,
+        "coat": 0.1,
+        "normalMode": "TangentSpace"
+    }
+}

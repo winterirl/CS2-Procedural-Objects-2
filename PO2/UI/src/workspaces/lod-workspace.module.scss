@@ -1,0 +1,13 @@
+@use "../styles/tokens" as *;
+
+.panel { min-width: 0; }
+.intro { padding-bottom: 6rem; }
+.level {
+    display: flex;
+    flex-direction: column;
+    padding-top: 6rem;
+    border-top: 1rem solid rgba(255, 255, 255, 0.15);
+}
+:global(.po2-ui) .level > * + * { margin-top: 4rem; }
+.note { font-size: 0.85em; color: $color-text-muted; }
+.note, .status { white-space: pre-line; }

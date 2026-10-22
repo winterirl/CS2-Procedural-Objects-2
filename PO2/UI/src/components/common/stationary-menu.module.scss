@@ -1,0 +1,29 @@
+// Keep every menu button still, including native press effects and nested labels.
+// The game's theme still supplies the normal, selected, and disabled colors.
+:global(.po2-ui) {
+    .button,
+    .button *,
+    .button::before,
+    .button::after {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    .button,
+    .button > *,
+    .button:hover > *,
+    .button:focus > *,
+    .button:active > * {
+        transform: none !important;
+    }
+
+    .button > * {
+        margin-left: 0 !important;
+    }
+
+    // A disabled menu button should not enter the native hover state.
+    .button[data-po2-disabled="true"],
+    .button[data-po2-disabled="true"] * {
+        pointer-events: none;
+    }
+}

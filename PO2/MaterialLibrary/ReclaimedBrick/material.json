@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 60,
+    "id": "po2/masonry/reclaimed-brick",
+    "displayName": "Reclaimed Brick",
+    "category": "Masonry",
+    "textures": {
+        "baseColor": "Source/ReclaimedBrick_BaseColor.png",
+        "normal": "Source/ReclaimedBrick_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 2.5,
+        "heightMeters": 2.5
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.04,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

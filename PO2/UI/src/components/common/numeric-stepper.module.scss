@@ -1,0 +1,69 @@
+@use "../../styles/tokens" as *;
+@use "../../styles/typography" as type;
+
+:global(.po2-ui) {
+    .stepper {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+
+    .stepper > .caret {
+        flex: 0 0 $control-height;
+        width: $control-height;
+        height: $control-height;
+        min-height: 0;
+        margin: 0;
+        padding: 4rem;
+        box-sizing: border-box;
+    }
+
+    .stepper > .start {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    .stepper > .end {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+
+    .numberField {
+        --size: #{$control-height};
+        height: var(--size);
+        width: calc(2 * var(--size) * var(--fontScale) + 12rem);
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        align-self: stretch;
+        background-color: rgba(15, 16, 19, .5);
+        font-size: type.$normal;
+        coh-font-fit-mode: shrink;
+    }
+
+    .numberField > .value {
+        width: 100%;
+        height: auto;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background-color: transparent;
+        color: rgba(255, 255, 255, 1);
+        text-align: center;
+        font-family: var(--fontFamily);
+        font-size: 1em;
+        font-weight: type.$weight;
+        line-height: normal;
+    }
+
+    .caret > * {
+        width: 18rem;
+        height: 18rem;
+    }
+}

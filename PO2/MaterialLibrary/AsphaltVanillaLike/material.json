@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 10,
+    "id": "po2/asphalt/asphalt-vanilla-like",
+    "displayName": "G87 Asphalt Vanilla-Like",
+    "category": "Asphalt",
+    "textures": {
+        "baseColor": "Source/Asphalt2_BaseColor.png",
+        "normal": "Source/Asphalt2_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 1.5,
+        "heightMeters": 1.5
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.2,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

@@ -1,0 +1,73 @@
+@use "tokens" as *;
+
+:global(.po2-ui) {
+
+    .stack,
+    .stack-roomy {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stack > * + * {
+        margin-top: 3rem;
+    }
+
+    .stack-roomy > * + * {
+        margin-top: $space-2;
+    }
+
+    .action-row,
+    .split-row {
+        display: flex;
+        align-items: center;
+    }
+
+    .action-row {
+        align-items: stretch;
+    }
+
+    .action-row > * {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .action-row > * + * {
+        margin-left: 3rem;
+    }
+
+    .action-row-tight > * + * {
+        margin-left: $space-1;
+    }
+
+    .split-row {
+        justify-content: space-between;
+    }
+
+    .split-row > * + * {
+        margin-left: $space-3;
+    }
+
+    .wrap-actions {
+        display: flex;
+        flex-wrap: wrap;
+        margin: -1rem;
+    }
+
+    .wrap-actions > * {
+        flex: 1 1 72rem;
+        margin: 1rem;
+    }
+
+    .wide {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    .divider {
+        height: 1rem;
+        flex: 0 0 1rem;
+        margin: 6rem 0;
+        border: 0;
+        background-color: $color-divider;
+    }
+}

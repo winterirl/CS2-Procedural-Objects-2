@@ -1,0 +1,17 @@
+.cursor {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 28rem;
+    height: 28rem;
+    margin-left: 16rem;
+    margin-top: -34rem;
+    pointer-events: none;
+    z-index: 20000;
+}
+
+.cursor img {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}

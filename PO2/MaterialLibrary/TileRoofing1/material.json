@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 90,
+    "id": "po2/tile/tile-roofing-1",
+    "displayName": "Tile Roofing 1",
+    "category": "Tile",
+    "textures": {
+        "baseColor": "Source/TileRoofing1_BaseColor.png",
+        "normal": "Source/TileRoofing1_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 2.9,
+        "heightMeters": 2.9
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.08,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

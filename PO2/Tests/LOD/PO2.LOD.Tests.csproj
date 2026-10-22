@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="../../Core/Lod/*.cs" />
+        <Compile Include="../../Rendering/Lod/Native/MeshOptimizerNative.cs" />
+        <Compile Include="../../Rendering/Lod/LodData.cs" />
+        <Compile Include="../../Rendering/Lod/LodCaptureData.cs" />
+        <Compile Include="../../Rendering/Lod/ILodCaptureMetrics.cs" />
+        <Compile Include="../../Rendering/Lod/LodGenerationSettings.cs" />
+        <Compile Include="../../Rendering/Lod/LodGenerationRequest.cs" />
+        <Compile Include="../../Rendering/Lod/LodAutomaticChain.cs" />
+        <Compile Include="../../Rendering/Lod/LodSchedulerSettings.cs" />
+        <Compile Include="../../Rendering/Lod/LodMeshMath.cs" />
+        <Compile Include="../../Rendering/Lod/LodMeshCompactor.cs" />
+        <Compile Include="../../Rendering/Lod/LodGenerator.cs" />
+        <Compile Include="../../Rendering/Lod/LodGenerationWorker.cs" />
+        <Compile Include="../../Rendering/Lod/LodGenerationCoordinator.cs" />
+        <Compile Include="../../Rendering/Lod/LodGenerationCoordinator.Preview.cs" />
+        <Compile Include="../../Rendering/Lod/LodPreviewSession.cs" />
+        <Compile Include="../../Rendering/Lod/LodPresentation.cs" />
+        <Compile Include="UnityStubs.cs" />
+        <Compile Include="RendererStubs.cs" />
+        <Compile Include="CorePreviewStubs.cs" />
+        <Compile Include="LodUiStubs.cs" />
+        <Compile Include="LodWorkspaceTests.cs" />
+        <Compile Include="../Persistence/UIBindingStubs.cs" />
+        <Compile Include="../Persistence/TestUIWriter.cs" />
+        <Compile Include="../../Interface/Models/LodPanelState.cs" />
+        <Compile Include="../../Interface/ProceduralObjectUiSystem.Lod.cs" />
+        <Compile Include="../../Tools/ObjectTool/Workspace.cs" />
+        <Compile Include="../../Tools/ObjectTool/ObjectToolMode.cs" />
+        <Compile Include="../../Tools/ObjectTool/ProceduralObjectToolSystem.Lod.cs" />
+        <Compile Include="PreviewCoreTests.cs" />
+        <Compile Include="../../Core/ProceduralObject.Lod.cs" />
+        <Compile Include="../../Core/ProceduralObjectSystem.Lod.cs" />
+        <Compile Include="../../Core/ProceduralObjectSystem.LodPreview.cs" />
+        <Compile Include="PreviewRendererTests.cs" />
+        <Compile Include="PreviewSchedulerTests.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.LodPublication.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.Lod.cs" />
+        <Compile Include="../../Rendering/Objects/ProceduralObjectRenderer.LodPreview.cs" />
+        <Compile Include="Program.cs" />
+        <Compile Include="ProfileTests.cs" />
+        <Compile Include="NativeTestLibrary.cs" />
+        <Compile Include="NativeFailureTests.cs" />
+        <Compile Include="MeshComparison.cs" />
+        <Compile Include="RequestTests.cs" />
+        <Compile Include="UV1Tests.cs" />
+
+        <None Include="../../Native/MeshOptimizer/Compiled/win-x64/po2_meshoptimizer.dll">
+            <Link>Native/win-x64/po2_meshoptimizer.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+</Project>

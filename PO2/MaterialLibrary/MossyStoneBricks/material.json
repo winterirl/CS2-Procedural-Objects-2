@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 70,
+    "id": "po2/masonry/mossy-stone-bricks",
+    "displayName": "Mossy Stone Bricks",
+    "category": "Masonry",
+    "textures": {
+        "baseColor": "Source/MossyStoneBricks_BaseColor.png",
+        "normal": "Source/MossyStoneBricks_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 1.5,
+        "heightMeters": 1.5
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

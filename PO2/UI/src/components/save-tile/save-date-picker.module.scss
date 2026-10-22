@@ -1,0 +1,58 @@
+@use "../../styles/tokens" as *;
+
+.picker {
+    min-width: 140rem;
+}
+
+.picker > * {
+    width: 100%;
+}
+
+.calendar {
+    width: 266rem;
+    padding: $space-3;
+    font-size: 14rem;
+}
+
+.heading {
+    display: flex;
+    align-items: center;
+    margin-bottom: $space-3;
+}
+
+.heading > span {
+    color: #ffffff;
+    flex: 1 1 auto;
+    text-align: center;
+}
+
+.week {
+    display: flex;
+    width: 100%;
+}
+
+.weekday,
+.empty {
+    flex: 0 0 14.2857%;
+    width: 14.2857%;
+    text-align: center;
+}
+
+.weekday {
+    padding: $space-2 0;
+    font-size: 12rem;
+    color: $color-text-muted;
+}
+
+:global(.po2-ui) .calendar .day {
+    display: flex;
+    flex: 0 0 14.2857%;
+    width: 14.2857%;
+    min-width: 0;
+    min-height: 30rem;
+    margin: 0;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}

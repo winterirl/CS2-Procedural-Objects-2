@@ -1,0 +1,81 @@
+@use "../../styles/tokens" as *;
+
+:global(.po2-ui) {
+    .section {
+        display: flex;
+        flex-direction: column;
+    }
+    .section > * + * {
+        margin-top: 3rem;
+    }
+    .arraySummary {
+        white-space: nowrap;
+    }
+    .row {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        min-width: 0;
+    }
+    .row > * + * {
+        margin-left: 3rem;
+    }
+    // Navigation dropdowns own the gap on both sides.
+    .row > .dropdown {
+        margin-left: 2rem;
+        margin-right: 2rem;
+    }
+    .row > .dropdown + * {
+        margin-left: 0;
+    }
+    .name,
+    .dropdown {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+    .name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .vector {
+        display: flex;
+        flex-direction: row;
+        min-width: 0;
+    }
+    .vector > * {
+        display: flex;
+        flex-direction: row;
+        flex: 1 1 0;
+        min-width: 0;
+        align-items: center;
+        text-align: center;
+    }
+    .vector > * + * {
+        margin-left: 4rem;
+    }
+    .vector input {
+        width: 0;
+        flex: 1 1 0;
+        margin-left: 3rem;
+    }
+    .vector label > span { flex: 0 0 auto; }
+    .axisX,
+    .axisY,
+    .axisZ {
+        font-weight: bold;
+    }
+    .axisX {
+        color: #ff0000;
+    }
+    .axisY {
+        color: #00ff00;
+    }
+    .axisZ {
+        color: #0000ff;
+    }
+}
+:global(.po2-ui).dropdownPopup {
+    z-index: $z-popover + 20;
+    pointer-events: auto;
+}

@@ -1,0 +1,308 @@
+@use "tokens" as *;
+
+.section-header,
+.value-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+:global(.po2-ui) .section-header > * + *,
+:global(.po2-ui) .value-row > * + * {
+    margin-left: $space-3;
+}
+
+.value {
+    color: $color-text-muted;
+    text-align: right;
+}
+
+.card,
+.numeric-editor,
+.interaction-prompt {
+    padding: 3rem 5rem;
+    border-radius: $radius-small;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.card,
+.numeric-editor {
+    display: flex;
+    flex-direction: column;
+}
+
+:global(.po2-ui) .card > * + * {
+    margin-top: $space-1;
+}
+
+:global(.po2-ui) .numeric-editor > * + * {
+    margin-top: 3rem;
+}
+
+.interaction-prompt {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.interaction-heading {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.interaction-prompt > span,
+.face-selection-copy {
+    flex: 1;
+}
+
+:global(.po2-ui) .interaction-prompt > * + * {
+    margin-left: $space-2;
+}
+
+.face-selection-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+:global(.po2-ui) .face-selection-copy > * + * {
+    margin-top: 2rem;
+}
+
+// Explicit cells keep an unpaired choice at the same width as the other buttons.
+:global(.po2-ui) {
+    .choice-row {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+    }
+
+    .choice-cell {
+        flex: 1 1 0;
+        width: 0;
+        min-width: 0;
+    }
+
+    .choice-cell + .choice-cell {
+        margin-left: 2rem;
+    }
+
+    .choice-cell > * {
+        width: 100%;
+    }
+
+    .creation-actions > .choice-row + .choice-row {
+        margin-top: 2rem;
+    }
+
+    .parameters > .placement-instruction {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.create-workspace,
+.creation-actions,
+.parameters {
+    display: flex;
+    flex-direction: column;
+}
+
+.placement-instruction {
+    color: $color-text;
+}
+
+:global(.po2-ui) .creation-actions > * + * {
+    margin-top: $space-2;
+}
+
+:global(.po2-ui) .parameters > * + * {
+    margin-top: $space-2;
+}
+
+.parameter-label {
+    color: $color-text;
+}
+
+.instruction {
+    padding: $space-5 $space-2;
+    color: $color-text-muted;
+    text-align: center;
+}
+
+.object-list-workspace {
+    display: flex;
+    flex-direction: column;
+}
+
+:global(.po2-ui) .object-list-workspace > * + * {
+    margin-top: $space-3;
+}
+
+.object-list-search {
+    display: flex;
+    align-items: center;
+}
+
+.object-list-search > span {
+    flex: 0 0 52rem;
+    margin-right: $space-3;
+}
+
+.object-list-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.object-list {
+    display: flex;
+    flex-direction: column;
+}
+
+:global(.po2-ui) .object-list > * + * {
+    margin-top: 2rem;
+}
+
+.object-list-button {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+}
+
+.color-mask-input-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.color-mask-input-row > span {
+    margin-right: $space-3;
+}
+
+.performance-workspace,
+.performance-section,
+.performance-object-list {
+    display: flex;
+    flex-direction: column;
+}
+
+:global(.po2-ui) .performance-workspace > * + * {
+    margin-top: $space-4;
+}
+
+:global(.po2-ui) .performance-section > * + * {
+    margin-top: $space-2;
+}
+
+.performance-object-list {
+    padding: $space-1 $space-3;
+    border-radius: $radius-small;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+:global(.po2-ui) .performance-object-list > * + * {
+    border-top: 1rem solid $color-divider;
+}
+
+.performance-object-row {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: $space-2 0;
+}
+
+:global(.po2-ui) .performance-object-row > * + * {
+    margin-top: $space-1;
+}
+
+.performance-object-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+}
+
+.performance-object-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.performance-object-stats {
+    composes: small from "./typography.module.scss";
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    margin-left: $space-3;
+    color: $color-text-muted;
+    white-space: nowrap;
+}
+
+:global(.po2-ui) .performance-object-stats > * + * {
+    margin-left: $space-1;
+}
+
+.performance-object-stat {
+    display: flex;
+    align-items: center;
+}
+
+:global(.po2-ui) .performance-object-stat > * + * {
+    margin-left: 2rem;
+}
+
+.performance-object-lod-diagnostics {
+    composes: small from "./typography.module.scss";
+    display: flex;
+    flex-direction: column;
+    color: $color-text-muted;
+}
+
+:global(.po2-ui) .performance-object-lod-diagnostics > * + * {
+    margin-top: 2rem;
+}
+
+.performance-object-lod-row,
+.performance-object-lod-result {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+:global(.po2-ui) .performance-object-lod-row > * + *,
+:global(.po2-ui) .performance-object-lod-result > * + * {
+    margin-left: $space-1;
+}
+
+.performance-object-lod-label {
+    min-width: 25rem;
+    color: $color-text;
+}
+
+.performance-object-lod-pending {
+    composes: small from "./typography.module.scss";
+    color: $color-text-muted;
+}
+
+.performance-status,
+.performance-empty {
+    padding: $space-5 $space-3;
+    color: $color-text-muted;
+    text-align: center;
+}
+
+.performance-captured-at {
+    composes: small from "./typography.module.scss";
+    color: $color-text-muted;
+    text-align: center;
+}
+:global(.po2-ui) {
+    // Keep rows at their normal height as the list fills up.
+    .object-list > * {
+        flex-shrink: 0;
+    }
+}
+

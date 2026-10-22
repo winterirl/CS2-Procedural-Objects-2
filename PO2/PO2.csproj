@@ -1,0 +1,155 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <Configurations>Debug;Release</Configurations>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+        <PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
+        <!-- So you can build even with just material changes -->
+        <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
+    </PropertyGroup>
+
+    <Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.props" />
+    <Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.targets" />
+
+    <ItemGroup>
+        <Reference Include="Game">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Colossal.Core">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Colossal.Mathematics">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Colossal.Logging">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Colossal.IO.AssetDatabase">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Colossal.AssetPipeline">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Colossal.UI">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Colossal.UI.Binding">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Colossal.Localization">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Unity.InputSystem">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine.CoreModule">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine.AssetBundleModule">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine.ImageConversionModule">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine.PhysicsModule">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Unity.RenderPipelines.Core.Runtime">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Unity.RenderPipelines.HighDefinition.Runtime">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Unity.Burst">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Unity.Collections">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Unity.Entities">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Unity.Mathematics">
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Update="System">
+            <Private>false</Private>
+        </Reference>
+        <Reference Update="System.Core">
+            <Private>false</Private>
+        </Reference>
+        <Reference Update="System.Data">
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+
+    <Target Name="InstallUI" AfterTargets="AfterBuild">
+        <Exec Command="npm run build" WorkingDirectory="$(ProjectDir)/UI" />
+    </Target>
+
+    <ItemGroup>
+        <None Include="$(ModPropsFile)" Link="Properties\Mod.props" />
+        <None Include="$(ModTargetsFile)" Link="Properties\Mod.targets" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="Localization\*.json" LogicalName="PO2.L10n.%(Filename)%(Extension)" WithCulture="false" />
+        <EmbeddedResource Include="Rendering\Assets\po-object-marker.png" LogicalName="PO2.ObjectMarker.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="MaterialLibrary\**\Source\*.png">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+        <Content Include="MaterialLibrary\**\material.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+    </ItemGroup>
+
+    <Target Name="SyncMaterialLibrary" AfterTargets="Build">
+        <ItemGroup>
+            <PO2MaterialPayload Include="$(ProjectDir)MaterialLibrary\**\*.png;$(ProjectDir)MaterialLibrary\**\material.json" />
+        </ItemGroup>
+
+        <Copy SourceFiles="@(PO2MaterialPayload)" DestinationFiles="@(PO2MaterialPayload->'$(TargetDir)MaterialLibrary\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    </Target>
+
+    <ItemGroup>
+        <!-- Unity Editor compute bundle builder source is not part of the runtime code mod assembly -->
+        <Compile Remove="ComputeAssets\Builder\**\*.cs" />
+        <Compile Remove="Tests\**\*.cs" />
+
+        <Content Include="ComputeAssets\Compiled\po2_vertex_marker_compute.bundle">
+            <TargetPath>ComputeAssets\po2_vertex_marker_compute.bundle</TargetPath>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+
+        <Content Include="Native\MeshOptimizer\Compiled\win-x64\po2_meshoptimizer.dll" Condition="Exists('$(ProjectDir)Native\MeshOptimizer\Compiled\win-x64\po2_meshoptimizer.dll')">
+            <TargetPath>Native\win-x64\po2_meshoptimizer.dll</TargetPath>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Tests\Conversion\" />
+    </ItemGroup>
+
+    <Target Name="ValidatePO2VertexMarkerComputeBundle" BeforeTargets="CoreCompile">
+        <!-- The runtime bundle is checked in/deployed as content. Normal builds shouldn't invoke Unity and regenerate it. -->
+        <Error Condition="!Exists('$(ProjectDir)ComputeAssets\Compiled\po2_vertex_marker_compute.bundle')" Text="PO2 marker compute bundle is missing. Run ComputeAssets\BuildComputeBundle.ps1 explicitly, then build PO2 again." />
+    </Target>
+
+    <Target Name="WarnMissingPO2MeshOptimizer" BeforeTargets="CoreCompile">
+        <!-- PO2 remains usable at LOD0 if the optional native payload is absent, but make an incomplete LOD deployment obvious. -->
+        <Warning Condition="!Exists('$(ProjectDir)Native\MeshOptimizer\Compiled\win-x64\po2_meshoptimizer.dll')" Text="PO2 meshoptimizer native library is missing. Run Native\MeshOptimizer\BuildNativeMeshOptimizer.ps1 before testing runtime LOD generation." />
+    </Target>
+
+</Project>

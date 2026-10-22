@@ -1,0 +1,23 @@
+@use "../../styles/typography" as type;
+
+:global(.po2-ui) {
+    .toggle, .menu {
+        font-size: type.$panel-base;
+    }
+    .item {
+        font-size: .85em;
+    }
+    .toggle {
+        width: 100%;
+        min-width: 0;
+    }
+    .toggle .label {
+        display: block;
+        min-width: 0;
+        flex: 1 1 0;
+        font-size: .85em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}

@@ -1,0 +1,386 @@
+@use "tokens" as *;
+
+.authoring-root,
+.authoring-panel,
+.initial-scan,
+.authoring-settings,
+.preview-column,
+.field,
+.files,
+.library-root,
+.library-import-section,
+.list,
+.details,
+.detail-content,
+.delete-section,
+.tuner-root,
+.tuner-content,
+.preview-root {
+    display: flex;
+    flex-direction: column;
+}
+
+.authoring-panel {
+    padding: $space-2 5rem;
+}
+
+:global(.po2-ui) .authoring-panel > * + * {
+    margin-top: $space-2;
+}
+
+.authoring-columns {
+    display: flex;
+    align-items: flex-start;
+}
+
+:global(.po2-ui) .authoring-columns > * + * {
+    margin-left: $space-4;
+}
+
+.authoring-settings {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+:global(.po2-ui) .authoring-settings > * + *,
+:global(.po2-ui) .initial-scan > * + * {
+    margin-top: $space-2;
+}
+
+.preview-column {
+    flex: 0 0 220rem;
+    min-width: 0;
+}
+
+:global(.po2-ui) .preview-column > * + * {
+    margin-top: $space-2;
+}
+
+:global(.po2-ui) .field > * + * {
+    margin-top: $space-1;
+}
+
+.source-row,
+.paired-actions,
+.actions,
+.control-row,
+.form-row,
+.entry,
+.detail-row,
+.delete-actions {
+    display: flex;
+    align-items: center;
+}
+
+.source-row {
+    align-items: stretch;
+}
+
+:global(.po2-ui) .source-row > * + *,
+:global(.po2-ui) .actions > * + * {
+    margin-left: 3rem;
+}
+
+.source-row > input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.control-row,
+.form-row {
+    justify-content: space-between;
+}
+
+.control-row > span,
+.form-row > span {
+    flex: 0 0 52rem;
+    margin-right: $space-3;
+}
+
+.control-row > input,
+.form-row > input,
+.category-dropdown,
+.category-control,
+.category-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+
+.category-control {
+    display: flex;
+    align-items: stretch;
+}
+
+:global(.po2-ui) .category-control > * + * {
+    margin-left: $space-2;
+}
+
+.category-toggle {
+    flex: 0 0 auto;
+}
+
+// The dropdown portal sits outside the panel's wrapper.
+:global(.po2-ui).category-dropdown-popup {
+    z-index: $z-popover + 20;
+    pointer-events: auto;
+}
+
+.candidate-name,
+.files {
+    padding: 3rem $space-2;
+    border-radius: $radius-small;
+    background-color: rgba(0, 0, 0, 0.14);
+}
+
+.files {
+    composes: small from "./typography.module.scss";
+}
+
+:global(.po2-ui) .files > * + * {
+    margin-top: $space-1;
+}
+
+.files > div {
+    display: flex;
+    justify-content: space-between;
+}
+
+:global(.po2-ui) .files > div > * + * {
+    margin-left: $space-3;
+}
+
+.files > div > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+    opacity: 0.75;
+}
+
+.paired-actions > button,
+.actions > * {
+    flex: 1;
+}
+
+.paired-actions > span {
+    min-width: 34rem;
+    margin: 0 $space-2;
+    text-align: center;
+}
+
+.mapping-field {
+    margin-top: $space-3 !important;
+}
+
+:global(.po2-ui) .mapping-actions > * + * {
+    margin-left: $space-2;
+}
+
+:global(.po2-ui) .authoring-actions > * + * {
+    margin-left: $space-2;
+}
+
+:global(.po2-ui) .library-root > * + * {
+    margin-top: 3rem;
+}
+
+.search {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+:global(.po2-ui) .browser {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    width: 100%;
+    min-width: 0;
+}
+
+:global(.po2-ui) .browser > * + * {
+    margin-left: $space-3;
+}
+
+:global(.po2-ui) .list-column {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 32vh;
+}
+
+:global(.po2-ui) .list-column > .list-viewport {
+    // Let the details column set the row height, then fill it with the viewport.
+    height: 0;
+    min-height: 0;
+    flex: 1 1 0;
+}
+
+:global(.po2-ui) .list > * {
+    flex-shrink: 0;
+}
+
+:global(.po2-ui) .list > * + *,
+:global(.po2-ui) .detail-content > * + *,
+:global(.po2-ui) .delete-section > * + * {
+    margin-top: 3rem;
+}
+
+.entry,
+.detail-row {
+    justify-content: space-between;
+}
+
+.entry {
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+}
+
+.entry-name {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entry-meta {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    composes: small from "./typography.module.scss";
+    flex-shrink: 0;
+    margin-left: $space-4;
+    color: $color-text;
+}
+
+.empty {
+    padding: $space-5 $space-3;
+    color: $color-text-muted;
+    text-align: center;
+}
+
+:global(.po2-ui) .details {
+    flex: 1 1 0;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 5rem;
+    border: 1rem solid rgba(255, 255, 255, 0.12);
+    border-radius: $radius-small;
+    background-color: rgba(0, 0, 0, 0.12);
+}
+
+:global(.po2-ui) .details > * + * {
+    margin-top: 5rem;
+}
+
+.detail-row {
+    align-items: baseline;
+}
+
+:global(.po2-ui) .detail-row > * + * {
+    margin-left: $space-4;
+}
+
+.detail-row > span:first-child {
+    color: $color-text;
+}
+
+.detail-row > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: right;
+}
+
+.delete-warning {
+    padding: 5rem;
+    border: 1rem solid $color-border;
+    border-radius: $radius-small;
+    background-color: rgba(0, 0, 0, 0.18);
+}
+
+.delete-actions > * {
+    flex: 1;
+}
+
+:global(.po2-ui) .delete-actions > * + * {
+    margin-left: $space-2;
+}
+
+.library-import-section {
+    margin-top: $space-3 !important;
+}
+
+:global(.po2-ui) .library-import-section > * + * {
+    margin-top: $space-2;
+}
+
+.preview-root {
+    align-items: center;
+}
+
+:global(.po2-ui) .preview-root > * + * {
+    margin-top: 3rem;
+}
+
+.preview-root > img,
+.preview-unavailable {
+    width: 220rem;
+    height: 220rem;
+    max-width: 100%;
+    border-radius: $radius-small;
+}
+
+.preview-root > img,
+.preview-unavailable {
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+.preview-root > span {
+    color: $color-text-muted;
+
+    text-align: center;
+}
+
+.preview-framed {
+    padding: $space-2;
+    border-radius: $radius-small;
+    background-color: rgba(0, 0, 0, 0.22);
+}
+
+.preview-unavailable {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $color-text-muted;
+}
+
+.tuner-root {
+    padding: $space-2;
+    border: 1rem solid rgba(255, 255, 255, 0.12);
+    border-radius: $radius-small;
+    background-color: rgba(0, 0, 0, 0.12);
+}
+
+:global(.po2-ui) .tuner-root > * + *,
+:global(.po2-ui) .tuner-content > * + * {
+    margin-top: $space-1;
+}
+
+.tuner-toggle {
+    width: 100%;
+}
+
+:global(.po2-ui) {
+    .entry-content {
+        min-width: 0;
+        width: 100%;
+        display: flex;
+        flex: 1 1 auto;
+        align-items: center;
+        justify-content: space-between;
+    }
+}

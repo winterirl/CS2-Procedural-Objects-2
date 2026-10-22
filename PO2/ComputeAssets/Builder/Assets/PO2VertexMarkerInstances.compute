@@ -1,0 +1,308 @@
+#pragma kernel BuildInstances
+#pragma kernel BuildEdgeInstances
+
+struct MarkerInput {
+    float3 Position;
+    float Radius;
+};
+
+struct EdgeInput {
+    float4 Start;
+    float4 End;
+};
+ 
+// This mirrors Game.Rendering.OverlayRenderSystem.CustomMeshdData exactly.
+// These matrices are written as explicit float4 columns so the StructuredBuffer layout doesn't depend on HLSL matrix packing conventions
+struct CustomMeshData {
+    float4 Matrix0;
+    float4 Matrix1;
+    float4 Matrix2;
+    float4 Matrix3;
+
+    float4 Inverse0;
+    float4 Inverse1;
+    float4 Inverse2;
+    float4 Inverse3;
+
+    float4 FillColor;
+    float2 Size;
+    int CustomMeshType;
+};
+
+StructuredBuffer<MarkerInput> _PO2MarkerInputs;
+StructuredBuffer<uint> _PO2MarkerVisualStates;
+RWStructuredBuffer<CustomMeshData> _PO2MarkerInstances;
+float3 _PO2CameraRight;
+float3 _PO2CameraNormal;
+float3 _PO2CameraUp;
+int _PO2MarkerCount;
+int _PO2CustomMeshType;
+
+float4 _PO2NormalColor;
+float4 _PO2HoveredColor;
+float4 _PO2SelectedColor;
+float4 _PO2SelectedHoveredColor;
+float4 _PO2AlignmentTargetColor;
+float4 _PO2SlideTargetColor;
+
+StructuredBuffer<EdgeInput> _PO2EdgeInputs;
+StructuredBuffer<uint> _PO2EdgeSelectionBits;
+RWStructuredBuffer<CustomMeshData> _PO2EdgeInstances;
+float3 _PO2EdgeCameraPosition;
+float3 _PO2EdgeCameraForward;
+float3 _PO2EdgeCameraRight;
+float3 _PO2EdgeCameraUp;
+float _PO2EdgeHalfWidthScale;
+float _PO2EdgeMinimumDepth;
+int _PO2EdgeCount;
+int _PO2HoveredEdgeIndex;
+int _PO2EdgeIsOrthographic;
+int _PO2EdgeCustomMeshType;
+float4 _PO2EdgeNormalColor;
+float4 _PO2EdgeHoveredColor;
+float4 _PO2EdgeSelectedColor;
+float4 _PO2EdgeSelectedHoveredColor;
+
+static const uint PO2_MARKER_SELECTED = 1u;
+static const uint PO2_MARKER_HOVERED = 2u;
+static const uint PO2_MARKER_ALIGNMENT_TARGET = 4u;
+static const uint PO2_MARKER_SLIDE_TARGET = 8u;
+
+float4 GetMarkerColor(uint visualState) {
+    if ((visualState & PO2_MARKER_SLIDE_TARGET) != 0u) {
+        return _PO2SlideTargetColor;
+    }
+
+    if ((visualState & PO2_MARKER_ALIGNMENT_TARGET) != 0u) {
+        return _PO2AlignmentTargetColor;
+    }
+
+    bool selected = (visualState & PO2_MARKER_SELECTED) != 0u;
+    bool hovered = (visualState & PO2_MARKER_HOVERED) != 0u;
+
+    if (selected && hovered) {
+        return _PO2SelectedHoveredColor;
+    }
+
+    if (selected) {
+        return _PO2SelectedColor;
+    }
+
+    if (hovered) {
+        return _PO2HoveredColor;
+    }
+
+    return _PO2NormalColor;
+}
+
+
+void WriteInstance(uint index) {
+    MarkerInput marker = _PO2MarkerInputs[index];
+    float halfSize = marker.Radius;
+    float inverseScale = rcp(max(halfSize, 0.000001));
+
+    float3 rightScaled = _PO2CameraRight * halfSize;
+    float3 normalScaled = _PO2CameraNormal * halfSize;
+    float3 upScaled = _PO2CameraUp * halfSize;
+
+    float3 rightInverse = _PO2CameraRight * inverseScale;
+    float3 normalInverse = _PO2CameraNormal * inverseScale;
+    float3 upInverse = _PO2CameraUp * inverseScale;
+
+    float rightTranslation =
+        -dot(_PO2CameraRight, marker.Position) * inverseScale;
+    float normalTranslation =
+        -dot(_PO2CameraNormal, marker.Position) * inverseScale;
+    float upTranslation =
+        -dot(_PO2CameraUp, marker.Position) * inverseScale;
+
+    CustomMeshData output;
+
+    output.Matrix0 = float4(rightScaled, 0.0);
+    output.Matrix1 = float4(normalScaled, 0.0);
+    output.Matrix2 = float4(upScaled, 0.0);
+    output.Matrix3 = float4(marker.Position, 1.0);
+
+    output.Inverse0 = float4(
+        rightInverse.x,
+        normalInverse.x,
+        upInverse.x,
+        0.0);
+    output.Inverse1 = float4(
+        rightInverse.y,
+        normalInverse.y,
+        upInverse.y,
+        0.0);
+    output.Inverse2 = float4(
+        rightInverse.z,
+        normalInverse.z,
+        upInverse.z,
+        0.0);
+    output.Inverse3 = float4(
+        rightTranslation,
+        normalTranslation,
+        upTranslation,
+        1.0);
+
+    output.FillColor = GetMarkerColor(_PO2MarkerVisualStates[index]);
+    output.Size = float2(halfSize, halfSize);
+    output.CustomMeshType = _PO2CustomMeshType;
+
+    _PO2MarkerInstances[index] = output;
+}
+
+[numthreads(64, 1, 1)]
+void BuildInstances(uint3 dispatchThreadId : SV_DispatchThreadID) {
+    uint index = dispatchThreadId.x;
+    if (index >= (uint)_PO2MarkerCount) {
+        return;
+    }
+
+    WriteInstance(index);
+}
+
+float3 GetEdgeFallbackWidth(float3 edgeDirection) {
+    float3 candidate =
+        _PO2EdgeCameraRight -
+        edgeDirection * dot(_PO2EdgeCameraRight, edgeDirection);
+
+    if (dot(candidate, candidate) <= 0.0000000001) {
+        candidate =
+            _PO2EdgeCameraUp -
+            edgeDirection * dot(_PO2EdgeCameraUp, edgeDirection);
+    }
+
+    if (dot(candidate, candidate) <= 0.0000000001) {
+        float3 referenceAxis = abs(edgeDirection.y) < 0.9
+            ? float3(0.0, 1.0, 0.0)
+            : float3(1.0, 0.0, 0.0);
+        candidate =
+            referenceAxis -
+            edgeDirection * dot(referenceAxis, edgeDirection);
+    }
+
+    return normalize(candidate);
+}
+
+float4 GetEdgeColor(uint index) {
+    uint selectedWord = _PO2EdgeSelectionBits[index >> 5u];
+    bool selected =
+        (selectedWord & (1u << (index & 31u))) != 0u;
+    bool hovered = (int)index == _PO2HoveredEdgeIndex;
+
+    if (selected && hovered) {
+        return _PO2EdgeSelectedHoveredColor;
+    }
+
+    if (selected) {
+        return _PO2EdgeSelectedColor;
+    }
+
+    if (hovered) {
+        return _PO2EdgeHoveredColor;
+    }
+
+    return _PO2EdgeNormalColor;
+}
+
+void WriteEdgeInstance(uint index) {
+    EdgeInput edge = _PO2EdgeInputs[index];
+    float3 edgeStart = edge.Start.xyz;
+    float3 edgeEnd = edge.End.xyz;
+    float3 edgeVector = edgeEnd - edgeStart;
+    float edgeLength = length(edgeVector);
+    float safeEdgeLength = max(edgeLength, 0.000001);
+    float3 edgeDirection = edgeLength > 0.000001
+        ? edgeVector / safeEdgeLength
+        : _PO2EdgeCameraRight;
+    float3 midpoint = (edgeStart + edgeEnd) * 0.5;
+
+    float3 viewToCamera = _PO2EdgeIsOrthographic != 0
+        ? -_PO2EdgeCameraForward
+        : _PO2EdgeCameraPosition - midpoint;
+    float viewLengthSquared = dot(viewToCamera, viewToCamera);
+    if (viewLengthSquared <= 0.0000000001) {
+        viewToCamera = -_PO2EdgeCameraForward;
+    }
+    else {
+        viewToCamera *= rsqrt(viewLengthSquared);
+    }
+
+    float3 widthDirection = cross(edgeDirection, viewToCamera);
+    float widthLengthSquared =
+        dot(widthDirection, widthDirection);
+    if (widthLengthSquared <= 0.0000000001) {
+        widthDirection = GetEdgeFallbackWidth(edgeDirection);
+    }
+    else {
+        widthDirection *= rsqrt(widthLengthSquared);
+    }
+
+    float3 normalDirection =
+        normalize(cross(widthDirection, edgeDirection));
+
+    float viewDepth = dot(
+        midpoint - _PO2EdgeCameraPosition,
+        _PO2EdgeCameraForward);
+    float depthScale = _PO2EdgeIsOrthographic != 0
+        ? 1.0
+        : max(viewDepth, _PO2EdgeMinimumDepth);
+    float halfWidth = max(
+        _PO2EdgeHalfWidthScale * depthScale,
+        0.000001);
+    float halfLength = max(edgeLength * 0.5, 0.000001);
+
+    float3 edgeScaled = edgeDirection * halfLength;
+    float3 normalScaled = normalDirection * halfWidth;
+    float3 widthScaled = widthDirection * halfWidth;
+
+    float3 edgeInverse = edgeDirection / halfLength;
+    float3 normalInverse = normalDirection / halfWidth;
+    float3 widthInverse = widthDirection / halfWidth;
+
+    CustomMeshData output;
+
+    output.Matrix0 = float4(edgeScaled, 0.0);
+    output.Matrix1 = float4(normalScaled, 0.0);
+    output.Matrix2 = float4(widthScaled, 0.0);
+    output.Matrix3 = float4(midpoint, 1.0);
+
+    output.Inverse0 = float4(
+        edgeInverse.x,
+        normalInverse.x,
+        widthInverse.x,
+        0.0);
+    output.Inverse1 = float4(
+        edgeInverse.y,
+        normalInverse.y,
+        widthInverse.y,
+        0.0);
+    output.Inverse2 = float4(
+        edgeInverse.z,
+        normalInverse.z,
+        widthInverse.z,
+        0.0);
+    output.Inverse3 = float4(
+        -dot(edgeInverse, midpoint),
+        -dot(normalInverse, midpoint),
+        -dot(widthInverse, midpoint),
+        1.0);
+
+    output.FillColor = edgeLength > 0.000001
+        ? GetEdgeColor(index)
+        : float4(0.0, 0.0, 0.0, 0.0);
+    output.Size = float2(halfLength, halfWidth);
+    output.CustomMeshType = _PO2EdgeCustomMeshType;
+
+    _PO2EdgeInstances[index] = output;
+}
+
+[numthreads(64, 1, 1)]
+void BuildEdgeInstances(uint3 dispatchThreadId : SV_DispatchThreadID) {
+    uint index = dispatchThreadId.x;
+    if (index >= (uint)_PO2EdgeCount) {
+        return;
+    }
+
+    WriteEdgeInstance(index);
+}

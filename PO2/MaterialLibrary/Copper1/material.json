@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 20,
+    "id": "po2/metal/copper-1",
+    "displayName": "Copper 1",
+    "category": "Metal",
+    "textures": {
+        "baseColor": "Source/Copper1_BaseColor.png",
+        "normal": "Source/Copper1_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 0.5,
+        "heightMeters": 0.5
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 1,
+        "smoothness": 0.35,
+        "coat": 0.15,
+        "normalMode": "TangentSpace"
+    }
+}

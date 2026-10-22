@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 20,
+    "id": "po2/metal/silver-1",
+    "displayName": "Silver 1",
+    "category": "Metal",
+    "textures": {
+        "baseColor": "Source/Silver1_BaseColor.png",
+        "normal": "Source/Silver1_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 2,
+        "heightMeters": 2
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 1,
+        "smoothness": 0.35,
+        "coat": 0.35,
+        "normalMode": "TangentSpace"
+    }
+}

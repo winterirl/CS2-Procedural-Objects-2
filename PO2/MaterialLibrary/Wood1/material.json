@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 80,
+    "id": "po2/wood/wood-1",
+    "displayName": "Wood 1",
+    "category": "Wood",
+    "textures": {
+        "baseColor": "Source/Wood1_BaseColor.png",
+        "normal": "Source/Wood1_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 1,
+        "heightMeters": 1
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.12,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

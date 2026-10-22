@@ -1,0 +1,30 @@
+@use "typography" as type;
+@use "tokens" as *;
+
+:global(.po2-ui) {
+    .panel {
+        font-size: type.$panel-base;
+        font-weight: type.$weight;
+        line-height: type.$line-height;
+    }
+
+    .title {
+        font-size: type.$panel-base;
+        font-weight: type.$weight;
+        line-height: type.$line-height;
+    }
+
+    .normal,
+    .label {
+        font-size: type.$normal;
+        font-weight: type.$weight;
+        line-height: type.$line-height;
+    }
+
+    .small {
+        font-size: type.$small;
+        font-weight: type.$weight;
+        line-height: type.$line-height;
+        color: $color-text-muted;
+    }
+}

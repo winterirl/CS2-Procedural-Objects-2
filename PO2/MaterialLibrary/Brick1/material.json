@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "catalogOrder": 60,
+    "id": "po2/masonry/bricks-1",
+    "displayName": "Bricks 1",
+    "category": "Masonry",
+    "textures": {
+        "baseColor": "Source/Bricks1_BaseColor.png",
+        "normal": "Source/Bricks1_Normal.png"
+    },
+    "physicalSize": {
+        "widthMeters": 1.5,
+        "heightMeters": 1.5
+    },
+    "defaults": {
+        "mappingMode": "Repeat",
+        "metallic": 0,
+        "smoothness": 0.04,
+        "coat": 0,
+        "normalMode": "TangentSpace"
+    }
+}

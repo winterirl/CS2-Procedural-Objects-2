@@ -1,0 +1,125 @@
+@use "../styles/tokens" as *;
+
+:global(.po2-ui) {
+    // Vanilla components own surfaces and interaction states.
+    .panel {
+        font-size: 14rem;
+        flex: 0 0 auto;
+        width: auto;
+        max-width: 100%;
+        min-height: 32rem;
+        overflow: visible;
+        pointer-events: auto;
+    }
+
+    // This toolbar does not need the panel's scrolling content behavior.
+    .panel .content {
+        padding: 4rem 8rem;
+        overflow: visible;
+        max-height: none;
+        flex: 0 0 auto;
+    }
+
+    .row,
+    .group,
+    .control {
+        display: flex;
+        align-items: center;
+    }
+
+    .row {
+        // Toolbars stay on one line when the available width is measured again.
+        flex-wrap: nowrap;
+    }
+
+    .row > * {
+        margin: 0 6rem;
+    }
+
+    .group > * + * {
+        margin-left: 4rem;
+    }
+
+    .brand,
+    .group,
+    .control {
+        flex-shrink: 0;
+    }
+
+    // Round buttons need a size from their containing toolbar.
+    .control > .navigationButton {
+        width: 32rem;
+        height: 32rem;
+        min-width: 32rem;
+        flex: 0 0 32rem;
+        padding: 4rem;
+        box-sizing: border-box;
+    }
+
+    .control > .navigationButton > * {
+        max-width: 24rem;
+        max-height: 24rem;
+    }
+
+    .control > .navigationButton[data-po2-disabled="false"]:hover,
+    .control > .navigationButton[data-po2-disabled="false"][data-po2-selected="true"] {
+        background-color: $color-control-hover;
+    }
+
+    .control > .navigationButton[data-po2-disabled="true"] {
+        opacity: .35;
+        pointer-events: none;
+    }
+
+    // Use the native menu surface with our compact toolbar sizing.
+    .control > .textButton {
+        // A percentage here depends on the height this button gives its parent.
+        height: auto;
+        border: 1rem solid transparent;
+        border-radius: 3rem;
+        text-transform: uppercase;
+        padding: 3rem 10rem;
+        font-size: .85em;
+        box-sizing: border-box;
+        white-space: nowrap;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        font-size: 1em;
+        font-weight: normal;
+    }
+
+    .brandIcon {
+        display: flex;
+        width: 24rem;
+        height: 24rem;
+        flex-shrink: 0;
+        margin-right: 6rem;
+    }
+
+    .brandIcon > .brandIconImage {
+        width: 24rem;
+        height: 24rem;
+    }
+
+    .row > .divider {
+        display: flex;
+        align-items: center;
+        width: 12rem;
+        height: 24rem;
+        flex-shrink: 0;
+        margin: 0;
+        pointer-events: none;
+    }
+
+    .dividerImage {
+        width: 12rem;
+        height: 24rem;
+    }
+
+    .control > .textButton[data-po2-selected="true"] {
+        border-color: #c8cacd;
+    }
+}

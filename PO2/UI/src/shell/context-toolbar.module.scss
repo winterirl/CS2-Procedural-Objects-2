@@ -1,0 +1,69 @@
+:global(.po2-ui) {
+    // The gap belongs to the whole panel, outside the native panel layout.
+    .wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 0 0 auto;
+        max-width: 100%;
+        margin-top: 6rem;
+        overflow: visible;
+        pointer-events: none;
+    }
+
+    .popoverHost {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        align-self: stretch;
+        min-width: 0;
+    }
+
+    .wrapper > .panel {
+        margin: 0;
+        overflow: visible;
+    }
+
+    // Cover both the native content slot and the contentClassName wrapper.
+    .wrapper .panel .content {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+        flex: 0 0 auto;
+    }
+
+    .innerContent {
+        padding-top: 4rem;
+        padding-bottom: 4rem;
+    }
+
+    .tools {
+        display: flex;
+        align-items: center;
+        // Toolbars stay on one line when the available width is measured again.
+        flex-wrap: nowrap;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .tools > * + * {
+        margin-left: 4rem;
+    }
+
+    .wrapper .tools > * {
+        flex-shrink: 0;
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+
+    .tools > .divider {
+        display: flex;
+        align-items: center;
+        width: 12rem;
+        height: 24rem;
+        flex: 0 0 12rem;
+        pointer-events: none;
+    }
+
+}
