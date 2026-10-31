@@ -21,7 +21,7 @@
             border-color: $color-focus;
         }
 
-        &:disabled {
+        &[disabled] {
             opacity: .55;
         }
     }

@@ -104,7 +104,12 @@ namespace PO2.Persistence.Model
             return data;
         }
 
-        internal ProceduralObject Restore(int runtimeId)
+        internal ProceduralObject Restore(int runtimeId) => RestoreCore(runtimeId, false);
+
+        // Only a consumed snapshot may donate its arrays to the live model.
+        internal ProceduralObject RestoreOwned(int runtimeId, MeshPart[] preparedParts = null) => RestoreCore(runtimeId, true, preparedParts);
+
+        private ProceduralObject RestoreCore(int runtimeId, bool owned, MeshPart[] preparedParts = null)
         {
             if (PersistentId == Guid.Empty)
             {
@@ -114,7 +119,7 @@ namespace PO2.Persistence.Model
             List<MeshPart> parts = new List<MeshPart>(Parts.Length);
             for (int i = 0; i < Parts.Length; i++)
             {
-                parts.Add(Parts[i].Restore());
+                parts.Add(preparedParts != null ? preparedParts[i] : owned ? Parts[i].RestoreOwned() : Parts[i].Restore());
             }
 
             List<CustomOrientation> customOrientations = new List<CustomOrientation>(CustomOrientations.Length);
@@ -129,7 +134,7 @@ namespace PO2.Persistence.Model
             obj.SetLocked(IsLocked);
             obj.SetReceivesDecals(ReceivesDecals);
             obj.SetLodProfile(LodProfile);
-            foreach (var cage in Deformations) obj.SetDeformation(cage.PartIndex, cage.Copy(obj, false));
+            foreach (var cage in Deformations) obj.SetDeformation(cage.PartIndex, owned ? cage.RestoreOwned(obj) : cage.Copy(obj, false));
             return obj;
         }
 
@@ -299,17 +304,19 @@ namespace PO2.Persistence.Model
 
         // Only detached operation buffers can be handed over. Callers finish all
         // reads before publishing the part, then release their capture references.
-        internal MeshPart RestoreOwned() => RestoreCore(false);
+        internal MeshPart RestoreOwned(ValidatedPartTopology prepared = null) => RestoreCore(false, prepared);
 
         private static T[] RestoreStream<T>(T[] values, bool clone) =>
             values == null || !clone ? values : (T[])values.Clone();
 
-        private MeshPart RestoreCore(bool clone)
+        private MeshPart RestoreCore(bool clone, ValidatedPartTopology prepared = null)
         {
             if (Vertices == null || Triangles == null || RenderToLogical == null || StructuralFaces == null || SurfaceAreas == null || TriangleSurfaceAreaIds == null)
             {
                 throw new InvalidOperationException($"Persisted mesh part '{Name}' is incomplete.");
             }
+
+            if (prepared != null && (clone || !ReferenceEquals(prepared.Source, this))) throw new InvalidOperationException("Prepared topology belongs to a different snapshot part.");
 
             MeshData mesh = new MeshData(RestoreStream(Vertices, clone), RestoreStream(Normals, clone), RestoreStream(Tangents, clone), RestoreStream(UV0, clone), RestoreStream(VertexColors, clone), RestoreStream(TexCoord1, clone), RestoreStream(TexCoord3, clone), RestoreStream(Triangles, clone));
 
@@ -319,15 +326,13 @@ namespace PO2.Persistence.Model
                 areas.Add(SurfaceAreas[i].Restore());
             }
 
-            StructuralFace[] faces = new StructuralFace[StructuralFaces.Length];
-            for (int i = 0; i < faces.Length; i++)
-            {
-                faces[i] = clone ? StructuralFaces[i].Clone() : StructuralFaces[i];
-            }
+            // StructuralFace is a value record. Owned loads can also donate the
+            // containing array; reusable history/clipboard restores keep a copy.
+            StructuralFace[] faces = clone ? (StructuralFace[])StructuralFaces.Clone() : StructuralFaces;
 
-            // MeshPart.Restore rebuilds derived adjacency/caches from the saved topology.
-            // Those runtime-only structures are not serialized.
-            return MeshPart.Restore(Name, mesh, RestoreStream(RenderToLogical, clone), LogicalVertexCount, faces, areas, RestoreStream(TriangleSurfaceAreaIds, clone), NextSurfaceAreaId, StructuralTopologySource, LocalPivot);
+            // City loading can donate validated prepared adjacency. Reusable DTO
+            // restores still rebuild independently from their saved topology.
+            return MeshPart.Restore(Name, mesh, RenderToLogical, LogicalVertexCount, faces, areas, RestoreStream(TriangleSurfaceAreaIds, clone), NextSurfaceAreaId, StructuralTopologySource, LocalPivot, takeMappingOwnership: !clone, prepared: prepared);
         }
 
         private static bool IsFinite(Vector3 value)

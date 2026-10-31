@@ -150,4 +150,9 @@
         <Compile Include="PivotTests.cs" />
         <Compile Include="GeometryStubs.cs" />
     </ItemGroup>
+    <ItemGroup>
+        <Compile Include="../../Persistence/Format/EncodedBuffer.cs" />
+        <Compile Include="../../Persistence/Format/FloatStreamPacking.cs" />
+        <Compile Include="../../Persistence/Format/ObjectBlockAssembly.cs" />
+    </ItemGroup>
 </Project>

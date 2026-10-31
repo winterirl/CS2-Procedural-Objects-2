@@ -7,7 +7,7 @@ using PO2.Geometry;
 namespace PO2.Core.Deformation
 {
     // Baseline arrays are never published as live mesh arrays.
-    // Corner edits share them ~ only creation, loading and duplication copy the streams.
+    // Corner edits share them; decoded baselines can be transferred during loading.
     internal sealed class DeformationBaseline
     {
         internal readonly int PartIndex;
@@ -75,6 +75,17 @@ namespace PO2.Core.Deformation
             }
 
             return new DeformationCage(newIdentity ? Guid.NewGuid() : Id, PartIndex, LocalFromReference, Corners, parts);
+        }
+
+        internal DeformationCage RestoreOwned(ProceduralObject obj)
+        {
+            var parts = new DeformationBaseline[Parts.Length];
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var source = Parts[i];
+                parts[i] = new DeformationBaseline(source.PartIndex, obj.Parts[source.PartIndex].PartHistoryId, source.Positions, source.Normals, source.Tangents);
+            }
+            return new DeformationCage(Id, PartIndex, LocalFromReference, Corners, parts);
         }
 
         internal static Vector3 UnitCorner(int corner) => new Vector3((corner & 1) != 0 ? 1f : 0f, (corner & 2) != 0 ? 1f : 0f, (corner & 4) != 0 ? 1f : 0f);

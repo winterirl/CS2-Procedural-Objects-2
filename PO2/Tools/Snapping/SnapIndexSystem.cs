@@ -13,8 +13,8 @@ using PO2.Geometry.Topology;
 
 namespace PO2.Tools.Snapping
 {
-    // Builds one reusable local-space snap tree per PO. Managed geometry is
-    // copied under a small frame budget, then one Burst build runs at a time.
+    // Builds one reusable local-space snap tree per PO.
+    // Managed geometry is copied under a small frame budget then one Burst build runs at a time.
     public partial class SnapIndexSystem : GameSystemBase
     {
         private const double kCaptureBudgetMilliseconds = 0.75;
@@ -59,28 +59,37 @@ namespace PO2.Tools.Snapping
             public bool CapturingEdges;
             public int ValidPrimitiveCount;
 
-            public int TotalVertexCount =>
-                LocalVertices.IsCreated ? LocalVertices.Length : 0;
+            public int TotalVertexCount => LocalVertices.IsCreated ? LocalVertices.Length : 0;
 
-            public bool CaptureComplete =>
-                PartIndex >= Parts.Length;
+            public bool CaptureComplete => PartIndex >= Parts.Length;
 
             public BuildData(PartCaptureInfo[] parts, int totalVertexCount, int totalEdgeCount)
             {
                 Parts = parts ?? Array.Empty<PartCaptureInfo>();
                 TotalEdgeCount = totalEdgeCount;
 
-                LocalVertices = CreateArray<float3>(totalVertexCount);
+                int primitiveCount = checked(totalVertexCount + totalEdgeCount);
 
-                VertexMetadata = CreateArray<int2>(totalVertexCount);
+                try
+                {
+                    LocalVertices = CreateArray<float3>(totalVertexCount);
 
-                VertexValid = CreateArray<byte>(totalVertexCount, NativeArrayOptions.ClearMemory);
+                    VertexMetadata = CreateArray<int2>(totalVertexCount);
 
-                Edges = CreateArray<int2>(Math.Max(1, totalEdgeCount));
+                    VertexValid = CreateArray<byte>(totalVertexCount, NativeArrayOptions.ClearMemory);
 
-                EdgeMetadata = CreateArray<int2>(totalEdgeCount);
+                    Edges = CreateArray<int2>(Math.Max(1, totalEdgeCount));
 
-                PrimitiveOrder = CreateArray<int>(checked(totalVertexCount + totalEdgeCount));
+                    EdgeMetadata = CreateArray<int2>(totalEdgeCount);
+
+                    PrimitiveOrder = CreateArray<int>(primitiveCount);
+                }
+                catch
+                {
+                    // The caller cannot dispose a constructor that never returned.
+                    Dispose();
+                    throw;
+                }
             }
 
             public void PrepareBuild()
@@ -103,8 +112,7 @@ namespace PO2.Tools.Snapping
                 DisposeArray(ref NodeCount);
 
                 // Burst jobs require every NativeArray field to be assigned.
-                // A vertex-only PO therefore builds against one unused edge
-                // slot, which is released before the persistent index owns it.
+                // A vertex-only PO therefore builds against one unused edge slot, which is released before the persistent index owns it.
                 if (TotalEdgeCount <= 0)
                 {
                     DisposeArray(ref Edges);
@@ -287,8 +295,7 @@ namespace PO2.Tools.Snapping
             return true;
         }
 
-        internal bool IsMeshTargetOwnerCurrent(ProceduralObject owner) =>
-            owner != null && m_Entries.TryGetValue(owner.Id, out var entry) && ReferenceEquals(entry.Owner, owner);
+        internal bool IsMeshTargetOwnerCurrent(ProceduralObject owner) => owner != null && m_Entries.TryGetValue(owner.Id, out var entry) && ReferenceEquals(entry.Owner, owner);
 
         internal bool TryAcquireMeshTarget(ProceduralObject owner, out ObjectSnapIndexLease lease)
         {
@@ -342,9 +349,7 @@ namespace PO2.Tools.Snapping
                 }
 
                 float candidateDistanceSquared = candidate.CursorDistancePixels * candidate.CursorDistancePixels;
-
                 bool closer = candidateDistanceSquared < bestDistanceSquared - kTargetTieEpsilon;
-
                 bool tied = Mathf.Abs(candidateDistanceSquared - bestDistanceSquared) <= kTargetTieEpsilon;
 
                 if (!closer && !(tied && IsPreferredTarget(candidate, target)))
@@ -739,15 +744,10 @@ namespace PO2.Tools.Snapping
                 {
                     int vertexIndex = data.ItemIndex++;
                     int globalVertexIndex = info.VertexOffset + vertexIndex;
-
                     Vertex vertex = part.Topology.GetVertex(vertexIndex);
-
                     Vector3 localPosition = vertex.GetPosition(part.Mesh);
-
                     float3 position = new float3(localPosition.x, localPosition.y, localPosition.z);
-
                     data.LocalVertices[globalVertexIndex] = position;
-
                     data.VertexMetadata[globalVertexIndex] = new int2(data.PartIndex, vertexIndex);
 
                     if (IsFinite(position))
@@ -785,9 +785,7 @@ namespace PO2.Tools.Snapping
                 }
 
                 int globalEdgeIndex = info.EdgeOffset + edgeIndex;
-
                 int globalVertexA = info.VertexOffset + vertexA;
-
                 int globalVertexB = info.VertexOffset + vertexB;
 
                 bool valid = vertexA >= 0 && vertexA < info.VertexCount && vertexB >= 0 && vertexB < info.VertexCount && data.VertexValid[globalVertexA] != 0 && data.VertexValid[globalVertexB] != 0;
@@ -795,9 +793,7 @@ namespace PO2.Tools.Snapping
                 if (valid)
                 {
                     data.Edges[globalEdgeIndex] = new int2(globalVertexA, globalVertexB);
-
                     data.EdgeMetadata[globalEdgeIndex] = new int2(data.PartIndex, edgeIndex);
-
                     data.PrimitiveOrder[data.ValidPrimitiveCount++] = data.TotalVertexCount + globalEdgeIndex;
                 }
 

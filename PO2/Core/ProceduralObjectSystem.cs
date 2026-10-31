@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Colossal.IO.AssetDatabase.VirtualTexturing;
+using Colossal.Serialization.Entities;
 using Game;
 using Game.SceneFlow;
 using Game.Tools;
@@ -141,6 +142,15 @@ namespace PO2.Core
             // GameSystemBase updates here can follow simulation timing.
         }
 
+        protected override void OnGamePreload(Purpose purpose, GameMode mode)
+        {
+            base.OnGamePreload(purpose, mode);
+            // New Game can go straight from Game to Game. There may never be a
+            // menu frame to clear these managed objects, so reset at the load boundary.
+            m_ProceduralObjectToolSystem?.PrepareForWorldChange();
+            ClearAll();
+        }
+
         internal void UpdateRuntimeLifecycle()
         {
             // A managed system can survive transitions through unsupported game modes.
@@ -187,8 +197,7 @@ namespace PO2.Core
                 bool lodScaleChanged = (dirtyBeforeSync & ProceduralObjectDirtyFlags.Transform) != 0 && m_Renderer.HasLodMetricScaleChanged(proceduralObject.Id, proceduralObject.Transform.Scale);
                 if (lodSourceChanged || lodScaleChanged)
                 {
-                    // Stop published meshes before Sync can release or
-                    // replace the source materials they share.
+                    // Stop published meshes before Sync can release or replace the source materials they share.
                     m_Renderer.InvalidateLod(proceduralObject.Id);
                 }
 
@@ -263,8 +272,8 @@ namespace PO2.Core
             m_ProceduralObjectToolSystem?.CancelArray();
             ResetArrayEdit();
             ActionHistory?.Clear();
-            // Release Unity resources before clearing the model. Failed loads and
-            // loads into the current world also need selection and runtime IDs reset.
+            // Release Unity resources before clearing the model.
+            // Failed loads and loads into the current world also need selection and runtime IDs reset.
             m_Renderer?.Clear();
             foreach (ProceduralObject obj in m_Objects.Values) obj.NameChanged -= InvalidateObjectList;
             m_Objects.Clear();

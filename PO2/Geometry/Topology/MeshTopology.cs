@@ -49,7 +49,7 @@ namespace PO2.Geometry.Topology
             m_EdgeLookup = edgeLookup;
         }
 
-        // The conversion-only native builder already emits edges in endpoint order.
+        // The packed native builder already emits edges in endpoint order.
         // It can skip constructing another giant managed dictionary and use the binary-search fallback in TryGetEdge().
         internal static MeshTopology CreateFromSortedData(Vertex[] vertices, LogicalEdge[] edges, int[] renderVertexToLogicalVertex)
         {
@@ -181,107 +181,9 @@ namespace PO2.Geometry.Topology
             return new MeshTopology(vertices, edges, renderToLogical, edgeLookup);
         }
 
-        internal static MeshTopology Restore(MeshData mesh, int[] renderToLogical, int logicalVertexCount)
+        internal static MeshTopology Restore(MeshData mesh, int[] renderToLogical, int logicalVertexCount, bool takeOwnership = false)
         {
-            if (mesh == null)
-            {
-                throw new ArgumentNullException(nameof(mesh));
-            }
-
-            if (renderToLogical == null)
-            {
-                throw new ArgumentNullException(nameof(renderToLogical));
-            }
-
-            if (renderToLogical.Length != mesh.Vertices.Length)
-            {
-                throw new InvalidOperationException($"Persisted render-to-logical mapping contains " + $"{renderToLogical.Length} entries for " + $"{mesh.Vertices.Length} render vertices.");
-            }
-
-            if (logicalVertexCount < 0 || (mesh.Vertices.Length > 0 && logicalVertexCount == 0))
-            {
-                throw new InvalidOperationException($"Invalid persisted logical vertex count " + $"{logicalVertexCount}.");
-            }
-
-            // The mapping is persisted because position welding loses intent.
-            // Two vertices may be split but overlapping, or welded and later moved together.
-            // Re-running Build() here would undo that history. Taht would be bad.
-            List<LogicalVertexBuilder> logicalVertices = new List<LogicalVertexBuilder>(logicalVertexCount);
-
-            for (int logicalId = 0; logicalId < logicalVertexCount; logicalId++)
-            {
-                logicalVertices.Add(new LogicalVertexBuilder(logicalId, Vector3.zero));
-            }
-
-            // Empty logical IDs are not allowed.
-            // A sparse or broken mapping would make vertex IDs unstable
-            // that would break every saved reference to topology derived from them.
-            bool[] represented = new bool[logicalVertexCount];
-            int[] mapping = (int[])renderToLogical.Clone();
-
-            for (int renderIndex = 0; renderIndex < mapping.Length; renderIndex++)
-            {
-                int logicalId = mapping[renderIndex];
-                if (logicalId < 0 || logicalId >= logicalVertexCount)
-                {
-                    throw new InvalidOperationException($"Persisted render vertex {renderIndex} references " + $"invalid logical vertex {logicalId}; logical count is " + $"{logicalVertexCount}.");
-                }
-
-                logicalVertices[logicalId].RenderVertexIndices.Add(renderIndex);
-                represented[logicalId] = true;
-            }
-
-            for (int logicalId = 0; logicalId < represented.Length; logicalId++)
-            {
-                if (!represented[logicalId])
-                {
-                    throw new InvalidOperationException($"Persisted logical vertex {logicalId} has no render " + "vertex membership.");
-                }
-            }
-
-            Dictionary<LogicalEdgeKey, LogicalEdgeBuilder> logicalEdges = new Dictionary<LogicalEdgeKey, LogicalEdgeBuilder>();
-
-            BuildAdjacency(mesh.Triangles, mapping, logicalVertices, logicalEdges);
-
-            Vertex[] vertices = new Vertex[logicalVertices.Count];
-
-            for (int i = 0; i < logicalVertices.Count; i++)
-            {
-                LogicalVertexBuilder builder = logicalVertices[i];
-
-                int[] adjacentTriangles = new int[builder.TriangleIndices.Count];
-                builder.TriangleIndices.CopyTo(adjacentTriangles);
-                Array.Sort(adjacentTriangles);
-
-                int[] adjacentVertices = new int[builder.AdjacentVertexIds.Count];
-                builder.AdjacentVertexIds.CopyTo(adjacentVertices);
-                Array.Sort(adjacentVertices);
-
-                vertices[i] = new Vertex(builder.Id, builder.RenderVertexIndices.ToArray(), adjacentTriangles, adjacentVertices);
-            }
-
-            List<LogicalEdgeBuilder> sortedEdgeBuilders = new List<LogicalEdgeBuilder>(logicalEdges.Values);
-            sortedEdgeBuilders.Sort((left, right) =>
-            {
-                int compareA = left.Key.VertexA.CompareTo(right.Key.VertexA);
-                return compareA != 0 ? compareA : left.Key.VertexB.CompareTo(right.Key.VertexB);
-            });
-
-            LogicalEdge[] edges = new LogicalEdge[sortedEdgeBuilders.Count];
-            Dictionary<LogicalEdgeKey, int> edgeLookup = new Dictionary<LogicalEdgeKey, int>(sortedEdgeBuilders.Count);
-
-            for (int i = 0; i < sortedEdgeBuilders.Count; i++)
-            {
-                LogicalEdgeBuilder builder = sortedEdgeBuilders[i];
-                int[] adjacentTriangles = new int[builder.TriangleIndices.Count];
-                builder.TriangleIndices.CopyTo(adjacentTriangles);
-                Array.Sort(adjacentTriangles);
-
-                edges[i] = new LogicalEdge(i, builder.Key.VertexA, builder.Key.VertexB, adjacentTriangles);
-                edgeLookup.Add(builder.Key, i);
-            }
-
-            return new MeshTopology(vertices, edges, mapping, edgeLookup);
+            return NativeMeshTopologyBuilder.Restore(mesh, renderToLogical, logicalVertexCount, takeOwnership);
         }
 
         public Vertex GetVertex(int logicalVertexId)

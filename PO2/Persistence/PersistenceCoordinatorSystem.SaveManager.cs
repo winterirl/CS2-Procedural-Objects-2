@@ -24,6 +24,8 @@ namespace PO2.Persistence
             if (m_LoadedSnapshotKey.Length > 0) keys.Add(m_LoadedSnapshotKey);
             if (m_LatestSnapshotKey.Length > 0) keys.Add(m_LatestSnapshotKey);
             if (m_RecoveredSnapshotKey.Length > 0) keys.Add(m_RecoveredSnapshotKey);
+            for (int i = m_DeferredSuccessfulSaveIndex; i < m_DeferredSuccessfulSaves.Count; i++)
+                keys.Add(m_DeferredSuccessfulSaves[i].ExactSaveFileKey);
             return keys;
         }
 
@@ -36,11 +38,5 @@ namespace PO2.Persistence
             SaveCatalogVersion++;
         }
 
-        internal void RefreshRecoveryAfterSaveDeletion()
-        {
-            if (!m_HasRecoveryContext || RecoveryResultPending) return;
-            RefreshRecoveryCandidatesAfterApplyFailure();
-            m_RecoveryStatus = RecoveryMessages.Discovered(m_RecoveryCandidates.Count);
-        }
     }
 }

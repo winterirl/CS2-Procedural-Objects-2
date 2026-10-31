@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="../../Localization/LocalizedText.cs" Link="Production/LocalizedText.cs" />
+        <Compile Include="../../Persistence/Maintenance/*.cs" Link="Production/%(Filename)%(Extension)" />
+        <Compile Include="../../Persistence/SaveManager.cs" Link="Production/SaveManager.cs" />
+        <Compile Include="../../Persistence/SaveDiscoveryModels.cs" Link="Production/SaveDiscoveryModels.cs" />
+        <Compile Include="../../Persistence/SaveIdentity.cs" Link="Production/SaveIdentity.cs" />
+        <Compile Include="../../Persistence/SnapshotFileStore.Root.cs" Link="Production/SnapshotFileStore.Root.cs" />
+        <Compile Include="../../Persistence/SnapshotFileStore.Discovery.cs" Link="Production/SnapshotFileStore.Discovery.cs" />
+        <Compile Include="../../Persistence/SnapshotFileStore.Deletion.cs" Link="Production/SnapshotFileStore.Deletion.cs" />
+        <Compile Include="../../Persistence/SnapshotFileStore.Maintenance.cs" Link="Production/SnapshotFileStore.Maintenance.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotReader.Header.cs" Link="Production/SnapshotReader.Header.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotFormat.cs" Link="Production/SnapshotFormat.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotBinary.cs" Link="Production/SnapshotBinary.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotContainerTypes.cs" Link="Production/SnapshotContainerTypes.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotMetadataCodec.cs" Link="Production/SnapshotMetadataCodec.cs" />
+        <Compile Include="../../Persistence/Format/Crc32.cs" Link="Production/Crc32.cs" />
+        <Compile Include="../../Persistence/Model/SnapshotMetadata.cs" Link="Production/SnapshotMetadata.cs" />
+        <Compile Include="../../Persistence/GameSaveCatalog.cs" Link="Production/GameSaveCatalog.cs" />
+        <Compile Include="../../Persistence/PersistenceCoordinatorSystem.Maintenance.cs" Link="Production/PersistenceCoordinatorSystem.Maintenance.cs" />
+        <Compile Include="../../Persistence/PersistenceCoordinatorSystem.SaveManager.cs" Link="Production/PersistenceCoordinatorSystem.SaveManager.cs" />
+        <Compile Include="../../Persistence/RecoveryMessages.cs" Link="Production/RecoveryMessages.cs" />
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Include="../../Persistence/Format/EncodedBuffer.cs" />
+        <Compile Include="../../Persistence/SnapshotFileIO.cs" />
+    </ItemGroup>
+</Project>

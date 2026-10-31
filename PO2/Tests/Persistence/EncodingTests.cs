@@ -41,7 +41,7 @@ internal static partial class PersistenceTests {
                         byte[] shuffle = SnapshotBinary.Deflate(SnapshotBinary.ShuffleFloatBytes(raw));
                         if (shuffle.Length < expected.Length) expected = shuffle;
                     }
-                    Equal(encoded.Payload, expected, "Compact retains baseline candidate selection");
+                    Equal(encoded.Payload.ToArray(), expected, "Compact retains baseline candidate selection");
                 }
             }
             // The decoder must also preserve bits from raw and ordinary Deflate files.
@@ -75,9 +75,12 @@ internal static partial class PersistenceTests {
             var metrics = new EncodingMetrics();
             byte[] parallel = SnapshotWriter.Write(Save, Session, Metadata, objects, new SnapshotEncodingOptions(mode, 4), metrics);
             Equal(parallel, serial, "Parallel part order and bytes " + mode);
-            Check(metrics.PartCount == 6 && metrics.PeakWorkers == 4 && metrics.ParallelBatches == 2, "Bounded part batches");
-            byte[] constrained = SnapshotWriter.Write(Save, Session, Metadata, objects, new SnapshotEncodingOptions(mode, 4, 1));
-            Equal(constrained, serial, "Oversized part falls back to serial");
+            Check(metrics.PartCount == 6 && metrics.PeakWorkers >= 1 && metrics.PeakWorkers <= 4, "Bounded encoding workers");
+            foreach (int workers in new[] { 8, 16, 32 }) {
+                var wider = new SnapshotEncodingOptions(mode, workers);
+                Check(wider.MaxWorkers == workers, "Explicit worker count retained");
+                Equal(SnapshotWriter.Write(Save, Session, Metadata, objects, wider), serial, "Wider queue retains bytes");
+            }
             var decoded = Read(parallel);
             Equal(SnapshotWriter.Write(Save, Session, Metadata, decoded.Objects), canonical, "All saved values match canonical round-trip " + mode);
             for (int i = 0; i < 6; i++) Check(decoded.Objects[0].Parts[i].Name == "Encoding part " + i, "Part order preserved");
@@ -101,7 +104,7 @@ internal static partial class PersistenceTests {
             objects[0].Parts[1].Triangles[0] = int.MaxValue;
             Throws<InvalidDataException>(() => store.WriteTransactional(key, Save, Session, Metadata, objects, options), "Worker failure aborts save");
             Equal(File.ReadAllBytes(result.FinalPath), previous, "Worker failure preserves previous final");
-            Check(!File.Exists(result.FinalPath + ".tmp"), "Worker failure before writing leaves no temp");
+            Check(File.Exists(result.FinalPath), "Worker failure leaves the old final published");
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

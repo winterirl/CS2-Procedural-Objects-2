@@ -124,6 +124,7 @@ namespace PO2.Rendering
             }
 
             var groups = GroupTriangles(candidate.TriangleSurfaceAreaIds, token);
+            var geometry = new SurfaceAreaGeometryBuilder(candidate.Mesh);
             var proof = ArrayCopy || Restoring ? new TopologyReplayProof { Scale = Scale } : ValidateReplayRestoration(before, token);
             bool combinedFallback = false;
             foreach (var area in candidate.SurfaceAreas)
@@ -132,13 +133,7 @@ namespace PO2.Rendering
             }
 
             var prepared = new List<TopologyRenderAreaPreparation>(groups.Count);
-            var vertices = new List<Vector3>();
-            var normals = new List<Vector3>();
-            var uv = new List<Vector4>();
-            var tangents = new List<Vector4>();
-            var colors = new List<Color32>();
-            var tex1 = new List<Vector4>();
-            var tex3 = new List<Vector4>();
+            int combinedVertexCount = 0;
             var submeshes = new List<int[]>();
             bool hasColors = false, hasTex1 = false, hasTex3 = false, requiresTangents = false;
             int dimension = 2;
@@ -147,7 +142,7 @@ namespace PO2.Rendering
                 token.ThrowIfCancellationRequested();
                 if (!groups.TryGetValue(area.Id, out var triangleIds)) continue;
                 if (!Areas.TryGetValue(area.Id, out var settings)) throw new InvalidOperationException("Missing renderer requirements for a Surface Area.");
-                ConvertedRenderPreparationBuilder.BuildAreaSourceMesh(candidate, area, triangleIds, out var mesh, out var sourceIndices, token);
+                geometry.Build(area, triangleIds, out var mesh, out var sourceIndices, token);
                 var item = new TopologyRenderAreaPreparation
                 {
                     Settings = settings, Source = mesh, SourceVertexIndices = sourceIndices,
@@ -194,13 +189,13 @@ namespace PO2.Rendering
 
                 token.ThrowIfCancellationRequested();
                 prepared.Add(item);
-                if (settings.Isolated) item.Upload = new TopologyMeshUpload(item.Runtime, new[] { item.Runtime.Triangles }, item.UV0Dimension, settings.RequiresTangents, token);
+                if (settings.Isolated) item.Upload = new TopologyMeshUpload(item.Runtime, new[] { item.Runtime.Triangles }, item.UV0Dimension, settings.RequiresTangents, token, useMeshIndices: true);
                 else
                 {
-                    item.CombinedOffset = vertices.Count;
+                    item.CombinedOffset = combinedVertexCount;
                     item.MaterialIndex = submeshes.Count;
                     var runtime = item.Runtime;
-                    ConvertedRenderPreparationBuilder.AppendAreaVertices(vertices, normals, uv, tangents, colors, tex1, tex3, runtime.Vertices, runtime.Normals, runtime.UV0, runtime.Tangents, runtime.VertexColors, runtime.TexCoord1, runtime.TexCoord3);
+                    combinedVertexCount = checked(combinedVertexCount + runtime.Vertices.Length);
                     int[] adjusted = new int[runtime.Triangles.Length];
                     for (int i = 0; i < adjusted.Length; i++) adjusted[i] = runtime.Triangles[i] + item.CombinedOffset;
                     submeshes.Add(adjusted);
@@ -225,9 +220,30 @@ namespace PO2.Rendering
                 cursor += indices.Length;
             }
 
-            result.Combined = new MeshData(vertices.ToArray(), normals.ToArray(), requiresTangents ? tangents.ToArray() : null, uv.ToArray(), hasColors ? colors.ToArray() : null, hasTex1 ? tex1.ToArray() : null, hasTex3 ? tex3.ToArray() : null, combinedIndices);
+            var vertices = new Vector3[combinedVertexCount];
+            var normals = new Vector3[combinedVertexCount];
+            var uv = new Vector4[combinedVertexCount];
+            var tangents = requiresTangents ? new Vector4[combinedVertexCount] : null;
+            var colors = hasColors ? new Color32[combinedVertexCount] : null;
+            var tex1 = hasTex1 ? new Vector4[combinedVertexCount] : null;
+            var tex3 = hasTex3 ? new Vector4[combinedVertexCount] : null;
+            foreach (var item in result.Areas)
+            {
+                if (item.Settings.Isolated) continue;
+                token.ThrowIfCancellationRequested();
+                var mesh = item.Runtime;
+                int offset = item.CombinedOffset, length = mesh.Vertices.Length;
+                CopyCombined(mesh.Vertices, vertices, offset, length, Vector3.zero);
+                CopyCombined(mesh.Normals, normals, offset, length, Vector3.up);
+                CopyCombined(mesh.UV0, uv, offset, length, Vector4.zero);
+                CopyCombined(mesh.Tangents, tangents, offset, length, new Vector4(1, 0, 0, 1));
+                CopyCombined(mesh.VertexColors, colors, offset, length, new Color32(255, 255, 255, 255));
+                CopyCombined(mesh.TexCoord1, tex1, offset, length, Vector4.zero);
+                CopyCombined(mesh.TexCoord3, tex3, offset, length, Vector4.zero);
+            }
+            result.Combined = new MeshData(vertices, normals, tangents, uv, colors, tex1, tex3, combinedIndices);
             appearance?.Validate(before, oldToNew, result, token);
-            result.Upload = new TopologyMeshUpload(result.Combined, result.Submeshes, dimension, requiresTangents, token);
+            result.Upload = new TopologyMeshUpload(result.Combined, result.Submeshes, dimension, requiresTangents, token, useMeshIndices: true);
             long bytes = MeshBytes(result.Combined) + UploadBytes(result.Upload);
             foreach (var item in result.Areas) bytes = checked(bytes + MeshBytes(item.Source) + MeshBytes(item.Runtime) + MeshBytes(item.Settings.Current) + UploadBytes(item.Upload) + 4L * (item.SourceVertexIndices.Length + (long)item.SourceTriangleIds.Length + item.RuntimeToPart.Length));
             var maps = new int[result.Areas.Length][];
@@ -238,9 +254,17 @@ namespace PO2.Rendering
                 if (result.Areas[i].Settings.Isolated) isolated[i] = result.Areas[i].Runtime.Vertices;
             }
 
-            result.GeometryUpdates = RenderGeometryPreparation.TryBuild(candidate.Mesh.Vertices.Length, maps, result.Submeshes.Length == 0 ? null : result.Combined.Vertices, isolated, token);
-            result.PreparedBytes = checked(bytes + (result.GeometryUpdates?.Bytes ?? 0));
-            return result;
+            try
+            {
+                result.GeometryUpdates = RenderGeometryPreparation.TryBuild(candidate.Mesh.Vertices.Length, maps, result.Submeshes.Length == 0 ? null : result.Combined.Vertices, isolated, token);
+                result.PreparedBytes = checked(bytes + (result.GeometryUpdates?.Bytes ?? 0));
+                return result;
+            }
+            catch
+            {
+                result.Dispose();
+                throw;
+            }
         }
 
         private static long MeshBytes(MeshData mesh) => mesh == null ? 0 : checked(12L * mesh.Vertices.Length + 12L * (mesh.Normals?.Length ?? 0) + 16L * (mesh.Tangents?.Length ?? 0) + 16L * (mesh.UV0?.Length ?? 0) + 4L * (mesh.VertexColors?.Length ?? 0) + 16L * (mesh.TexCoord1?.Length ?? 0) + 16L * (mesh.TexCoord3?.Length ?? 0) + 4L * mesh.Triangles.Length);
@@ -256,8 +280,7 @@ namespace PO2.Rendering
             bool generated = area.Material.Mapping.Mode != TextureMappingMode.Original;
             if (generated)
             {
-                item.Topology = MeshTopology.Build(mesh);
-                item.Mapping = new GeneratedMapping(mesh, item.Topology, area.SourceVertexAttributes, area.MappingSeed, sourceIndices);
+                item.Mapping = GeneratedMapping.Create(mesh, area.SourceVertexAttributes, area.MappingSeed, sourceIndices, out item.Topology);
                 item.Mapping.Update(mesh, item.Topology, Scale, area.Material.Mapping, settings.TileSize, true);
                 token.ThrowIfCancellationRequested();
                 var uvs = new Vector4[item.Mapping.UVs.Length];
@@ -300,6 +323,13 @@ namespace PO2.Rendering
             }
 
             return proof;
+        }
+
+        private static void CopyCombined<T>(T[] source, T[] target, int offset, int count, T fallback)
+        {
+            if (target == null) return;
+            if (source != null) Array.Copy(source, 0, target, offset, count);
+            else for (int i = 0; i < count; i++) target[offset + i] = fallback;
         }
 
         internal static Dictionary<int, int[]> GroupTriangles(IReadOnlyList<int> memberships, CancellationToken token)
@@ -362,7 +392,7 @@ namespace PO2.Rendering
         internal readonly Bounds Bounds;
         internal long VertexBytes => 12L * Positions.Length + 12L * (Directions?.Length ?? 0) + 16L * (SourceTangents?.Length ?? 0) + Auxiliary.LongLength;
 
-        internal TopologyMeshUpload(MeshData mesh, int[][] submeshes, int dimension, bool tangents, CancellationToken token)
+        internal TopologyMeshUpload(MeshData mesh, int[][] submeshes, int dimension, bool tangents, CancellationToken token, bool useMeshIndices = false)
         {
             VertexCount = mesh.Vertices.Length;
             UV0Dimension = dimension;
@@ -389,8 +419,9 @@ namespace PO2.Rendering
                 count = checked(count + submeshes[i].Length);
             }
 
-            Indices = new int[count];
-            for (int i = 0; i < submeshes.Length; i++)
+            if (useMeshIndices && mesh.Triangles.Length != count) throw new InvalidOperationException("Prepared submesh index count mismatch.");
+            Indices = useMeshIndices ? mesh.Triangles : new int[count];
+            for (int i = 0; !useMeshIndices && i < submeshes.Length; i++)
             {
                 token.ThrowIfCancellationRequested();
                 Array.Copy(submeshes[i], 0, Indices, SubmeshOffsets[i], submeshes[i].Length);

@@ -8,7 +8,6 @@ using PO2.Core.Primitives;
 using PO2.Geometry;
 using PO2.History.Actions;
 using PO2.Localization;
-using PO2.Persistence.Model;
 using PO2.Tools.ObjectTool;
 
 namespace PO2.Core
@@ -253,70 +252,6 @@ namespace PO2.Core
             }
         }
 
-        internal int RestoreSnapshot(IReadOnlyList<PersistenceObjectData> objects)
-        {
-            if (objects == null)
-            {
-                throw new System.ArgumentNullException(nameof(objects));
-            }
-
-            // Reconstruct and validate the complete set of candidates before clearing the current runtime.
-            // DTO or duplicate-identity failure leave the system stranded adn half-replaced.
-            List<ProceduralObject> restored = new List<ProceduralObject>(objects.Count);
-            HashSet<System.Guid> persistentIds = new HashSet<System.Guid>();
-
-            for (int i = 0; i < objects.Count; i++)
-            {
-                if (objects[i] == null)
-                {
-                    throw new System.InvalidOperationException($"Persistence snapshot object {i} is null.");
-                }
-
-                if (!persistentIds.Add(objects[i].PersistentId))
-                {
-                    throw new System.InvalidOperationException($"Persistence snapshot contains duplicate PO identity " + $"{objects[i].PersistentId}.");
-                }
-
-                restored.Add(objects[i].Restore(i + 1));
-            }
-
-            // Keep valid decoded objects even if one cannot create its renderer.
-            if (m_ProceduralObjectToolSystem != null)
-            {
-                m_ProceduralObjectToolSystem.PrepareRuntimeSelectionInvalidation();
-            }
-
-            ClearAll();
-            int committed = 0;
-
-            int repaired = 0;
-            for (int i = 0; i < restored.Count; i++)
-            {
-                ProceduralObject obj = restored[i];
-                repaired += obj.ValidateLibraryReferences();
-                try
-                {
-                    m_Renderer.Create(obj);
-                    m_Objects.Add(obj.Id, obj);
-                    TrackObjectName(obj);
-                    committed++;
-                }
-                catch (System.Exception exception)
-                {
-                    Mod.log.Error($"[PO][Persistence Restore] Skipped object " + $"persistentId={obj.PersistentId} after renderer " + $"creation failed: {exception}");
-                }
-            }
-
-            // Skip the full assigned ID range, including objects whose renderers failed.
-            m_NextId = restored.Count + 1;
-            m_SelectedObjectId = null;
-            m_SelectedPartIndex = 0;
-            m_SelectedSurfaceAreaId = MeshPart.kDefaultSurfaceAreaId;
-
-            Mod.log.Info($"[PO][Persistence Restore] Restored {committed}/" + $"{objects.Count} object(s); normalized {repaired} invalid " + "material reference(s).");
-            return committed;
-        }
-
         private bool TryRegisterNewObject(ProceduralObject candidate, bool select, out string failureReason)
         {
             return TryRegisterNewObject(candidate, select, null, null, out failureReason);
@@ -344,8 +279,7 @@ namespace PO2.Core
 
             try
             {
-                // A source stays untouched until both the candidate PO data and
-                // its runtime renderer exist successfully.
+                // A source stays untouched until both the candidate PO data and its runtime renderer exist successfully.
                 if (historyRenderer != null)
                 {
                     if (!ReferenceEquals(historyRenderer.Object, candidate)) throw new InvalidOperationException("The prepared renderer belongs to a different object.");

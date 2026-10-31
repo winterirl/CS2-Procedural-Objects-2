@@ -9,6 +9,19 @@
         <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     </PropertyGroup>
     <ItemGroup>
+        <Compile Include="../../Geometry/MeshPart.PersistenceRestore.cs" />
+        <Compile Include="../../Geometry/Topology/MeshTopology.Persistence.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralTopology.Persistence.cs" />
+        <Compile Include="../../Geometry/Topology/PackedTopologyData.cs" />
+        <Compile Include="../../Conversion/ConvertedStructuralTopologyBuilder.Restore.cs" />
+        <Compile Include="../../Conversion/ConvertedStructuralTopologyResult.cs" />
+        <Compile Include="../../Persistence/PreparedTopology/PartTopologyCapture.cs" />
+        <Compile Include="../../Persistence/PreparedTopology/EncodedPartTopology.cs" />
+        <Compile Include="../../Persistence/PreparedTopology/PreparedTopologyCodec.cs" />
+        <Compile Include="../../Persistence/PreparedTopology/PreparedTopologyLayout.cs" />
+        <Compile Include="../../Persistence/PreparedTopology/PreparedTopologyExpansion.cs" />
+        <Compile Include="../../Persistence/PreparedTopology/PreparedTopologyValidator.cs" />
+
         <Compile Include="../../Core/Lod/*.cs" />
         <Compile Include="../../Core/ProceduralObject.Lod.cs" />
         <Compile Include="../../Persistence/Format/LodProfileCodec.cs" />
@@ -305,5 +318,10 @@
         <Compile Include="DissolvePolygonTests.cs" />
         <Compile Include="../../Tools/ObjectTool/ProceduralObjectToolSystem.VertexRemoval.cs" />
         <Compile Include="../../Rendering/RenderGeometryPreparation.cs" />
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Include="../../Persistence/Format/EncodedBuffer.cs" />
+        <Compile Include="../../Persistence/Format/FloatStreamPacking.cs" />
+        <Compile Include="../../Persistence/Format/ObjectBlockAssembly.cs" />
     </ItemGroup>
 </Project>

@@ -196,128 +196,83 @@ namespace PO2.Geometry.Topology
             int logicalEdgeCount = meshTopology.LogicalEdgeCount;
             int structuralEdgeCount = 0;
             int adjacentFaceCount = 0;
+            int[] mappedFaceCounts = new int[logicalEdgeCount];
+            int[] seenFaceAtEdge = new int[faces.Length];
 
+            // Each edge gets a positive marker. Shared faces are counted once
+            // without repeatedly walking the earlier triangle memberships.
             for (int logicalEdgeId = 0; logicalEdgeId < logicalEdgeCount; logicalEdgeId++)
             {
                 LogicalEdge logicalEdge = meshTopology.GetEdge(logicalEdgeId);
-                int mappedCount = CountMappedFaces(logicalEdge.TriangleIndices, triangleFaceIds);
+                int mappedCount = CountMappedFaces(logicalEdge.TriangleIndices, triangleFaceIds,
+                    seenFaceAtEdge, logicalEdgeId + 1);
                 if (suppressedLogicalEdges[logicalEdgeId])
                 {
                     ValidateSuppressedLogicalEdge(meshTopology, logicalEdge, faces, faceTriangles, triangleFaceIds);
                     continue;
                 }
-
-                if (mappedCount == 0)
-                {
-                    continue;
-                }
-
+                if (mappedCount == 0) continue;
+                mappedFaceCounts[logicalEdgeId] = mappedCount;
                 structuralEdgeCount++;
                 adjacentFaceCount = checked(adjacentFaceCount + mappedCount);
             }
 
             StructuralEdge[] edges = new StructuralEdge[structuralEdgeCount];
             int[] adjacentFaceIds = new int[adjacentFaceCount];
-            int[] logicalToStructuralEdge = new int[logicalEdgeCount];
-            for (int i = 0; i < logicalToStructuralEdge.Length; i++)
-            {
-                logicalToStructuralEdge[i] = -1;
-            }
-
-            int structuralEdgeId = 0;
-            int adjacentFaceCursor = 0;
-            for (int logicalEdgeId = 0; logicalEdgeId < logicalEdgeCount; logicalEdgeId++)
-            {
-                LogicalEdge logicalEdge = meshTopology.GetEdge(logicalEdgeId);
-                if (suppressedLogicalEdges[logicalEdgeId])
-                {
-                    continue;
-                }
-
-                int mappedCount = CountMappedFaces(logicalEdge.TriangleIndices, triangleFaceIds);
-                if (mappedCount == 0)
-                {
-                    continue;
-                }
-
-                int adjacentStart = adjacentFaceCursor;
-                for (int i = 0; i < logicalEdge.TriangleIndices.Count; i++)
-                {
-                    int triangleId = logicalEdge.TriangleIndices[i];
-                    int faceId = triangleFaceIds[triangleId];
-                    if (faceId < 0 || ContainsMappedFaceBefore(logicalEdge.TriangleIndices, triangleFaceIds, i, faceId))
-                    {
-                        continue;
-                    }
-
-                    adjacentFaceIds[adjacentFaceCursor++] = faceId;
-                }
-
-                if (adjacentFaceCursor - adjacentStart != mappedCount)
-                {
-                    throw new InvalidOperationException("Converted structural edge adjacency count changed while packing.");
-                }
-
-                Array.Sort(adjacentFaceIds, adjacentStart, mappedCount);
-
-                edges[structuralEdgeId] = new StructuralEdge(structuralEdgeId, logicalEdge.VertexA, logicalEdge.VertexB, adjacentFaceIds, adjacentStart, mappedCount);
-                logicalToStructuralEdge[logicalEdgeId] = structuralEdgeId;
-                structuralEdgeId++;
-            }
-
-            if (structuralEdgeId != structuralEdgeCount || adjacentFaceCursor != adjacentFaceIds.Length)
-            {
-                throw new InvalidOperationException("Converted structural edge packing produced inconsistent counts.");
-            }
-
             int[] faceBoundaryOffsets = new int[faces.Length + 1];
             for (int faceId = 0; faceId < faces.Length; faceId++)
             {
                 faceBoundaryOffsets[faceId + 1] = checked(faceBoundaryOffsets[faceId] + faces[faceId].CornerCount);
             }
-
             int[] faceBoundaryEdgeIds = new int[faceBoundaryOffsets[faces.Length]];
             byte[] faceBoundaryForward = new byte[faceBoundaryEdgeIds.Length];
-            for (int i = 0; i < faceBoundaryEdgeIds.Length; i++)
-            {
-                faceBoundaryEdgeIds[i] = -1;
-            }
+            for (int i = 0; i < faceBoundaryEdgeIds.Length; i++) faceBoundaryEdgeIds[i] = -1;
+            Array.Clear(seenFaceAtEdge, 0, seenFaceAtEdge.Length);
 
+            int structuralEdgeId = 0;
+            int adjacentFaceCursor = 0;
             for (int logicalEdgeId = 0; logicalEdgeId < logicalEdgeCount; logicalEdgeId++)
             {
-                int packedEdgeId = logicalToStructuralEdge[logicalEdgeId];
-                if (packedEdgeId < 0)
-                {
-                    continue;
-                }
-
+                int mappedCount = mappedFaceCounts[logicalEdgeId];
+                if (mappedCount == 0) continue;
                 LogicalEdge logicalEdge = meshTopology.GetEdge(logicalEdgeId);
+                int marker = logicalEdgeId + 1;
+                int adjacentStart = adjacentFaceCursor;
                 for (int i = 0; i < logicalEdge.TriangleIndices.Count; i++)
                 {
-                    int triangleId = logicalEdge.TriangleIndices[i];
-                    int faceId = triangleFaceIds[triangleId];
-                    if (faceId < 0 || ContainsMappedFaceBefore(logicalEdge.TriangleIndices, triangleFaceIds, i, faceId))
-                    {
-                        continue;
-                    }
+                    int faceId = triangleFaceIds[logicalEdge.TriangleIndices[i]];
+                    if (faceId < 0 || seenFaceAtEdge[faceId] == marker) continue;
+                    seenFaceAtEdge[faceId] = marker;
+                    adjacentFaceIds[adjacentFaceCursor++] = faceId;
 
+                    // We already have this edge and face in hand. Fill their
+                    // boundary link now instead of scanning the edges again.
                     int boundaryIndex = FindFaceBoundary(meshTopology, faces[faceId], logicalEdge.VertexA, logicalEdge.VertexB, out bool forward);
                     if (boundaryIndex < 0)
                     {
                         throw new InvalidOperationException($"Converted structural face {faceId} does not contain " + $"logical edge {logicalEdgeId}.");
                     }
-
                     int flatBoundaryIndex = faceBoundaryOffsets[faceId] + boundaryIndex;
-                    if (faceBoundaryEdgeIds[flatBoundaryIndex] >= 0 && faceBoundaryEdgeIds[flatBoundaryIndex] != packedEdgeId)
+                    if (faceBoundaryEdgeIds[flatBoundaryIndex] >= 0 && faceBoundaryEdgeIds[flatBoundaryIndex] != structuralEdgeId)
                     {
                         throw new InvalidOperationException($"Converted structural face {faceId} boundary " + $"{boundaryIndex} maps to more than one edge.");
                     }
-
-                    faceBoundaryEdgeIds[flatBoundaryIndex] = packedEdgeId;
+                    faceBoundaryEdgeIds[flatBoundaryIndex] = structuralEdgeId;
                     faceBoundaryForward[flatBoundaryIndex] = forward ? (byte)1 : (byte)0;
                 }
+                if (adjacentFaceCursor - adjacentStart != mappedCount)
+                {
+                    throw new InvalidOperationException("Converted structural edge adjacency count changed while packing.");
+                }
+                if (mappedCount > 1) Array.Sort(adjacentFaceIds, adjacentStart, mappedCount);
+                edges[structuralEdgeId] = new StructuralEdge(structuralEdgeId, logicalEdge.VertexA,
+                    logicalEdge.VertexB, adjacentFaceIds, adjacentStart, mappedCount);
+                structuralEdgeId++;
             }
-
+            if (structuralEdgeId != structuralEdgeCount || adjacentFaceCursor != adjacentFaceIds.Length)
+            {
+                throw new InvalidOperationException("Converted structural edge packing produced inconsistent counts.");
+            }
             for (int i = 0; i < faceBoundaryEdgeIds.Length; i++)
             {
                 if (faceBoundaryEdgeIds[i] < 0)
@@ -578,7 +533,8 @@ namespace PO2.Geometry.Topology
             }
         }
 
-        private static int CountMappedFaces(IndexSpan triangleIds, int[] triangleFaceIds)
+        private static int CountMappedFaces(IndexSpan triangleIds, int[] triangleFaceIds,
+            int[] seenFaceAtEdge, int marker)
         {
             int count = 0;
             for (int i = 0; i < triangleIds.Count; i++)
@@ -588,31 +544,12 @@ namespace PO2.Geometry.Topology
                 {
                     throw new InvalidOperationException($"Logical edge references invalid triangle {triangleId}.");
                 }
-
                 int faceId = triangleFaceIds[triangleId];
-                if (faceId < 0 || ContainsMappedFaceBefore(triangleIds, triangleFaceIds, i, faceId))
-                {
-                    continue;
-                }
-
+                if (faceId < 0 || seenFaceAtEdge[faceId] == marker) continue;
+                seenFaceAtEdge[faceId] = marker;
                 count++;
             }
-
             return count;
-        }
-
-        private static bool ContainsMappedFaceBefore(IndexSpan triangleIds, int[] triangleFaceIds, int exclusiveEnd, int faceId)
-        {
-            for (int i = 0; i < exclusiveEnd; i++)
-            {
-                int triangleId = triangleIds[i];
-                if (triangleId >= 0 && triangleId < triangleFaceIds.Length && triangleFaceIds[triangleId] == faceId)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static void ValidateSuppressedLogicalEdge(MeshTopology meshTopology, LogicalEdge logicalEdge, StructuralFace[] faces, StructuralFaceTriangles[] faceTriangles, int[] triangleFaceIds)

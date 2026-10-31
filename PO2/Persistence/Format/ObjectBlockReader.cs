@@ -125,7 +125,7 @@ namespace PO2.Persistence.Format
                 PersistencePartData[] parts = new PersistencePartData[partCount];
                 for (int i = 0; i < partCount; i++)
                 {
-                    parts[i] = ReadPart(bodyStream, metadata.Parts[i], schemaVersion);
+                    parts[i] = ReadPart(bodyStream, bytes, bodyOffset, metadata.Parts[i], schemaVersion);
                 }
 
                 var data = PersistenceObjectData.FromDecoded(persistentId, metadata.Name, metadata.IsLocked, metadata.ReceivesDecals, metadata.Transform, metadata.CustomOrientations, parts, metadata.LocalPivot, metadata.LodProfile);
@@ -273,7 +273,7 @@ namespace PO2.Persistence.Format
             return result;
         }
 
-        private static PersistencePartData ReadPart(Stream stream, PartMetadata metadata, ushort schemaVersion)
+        private static PersistencePartData ReadPart(Stream stream, byte[] block, int origin, PartMetadata metadata, ushort schemaVersion)
         {
             int renderVertexCount = ReadCount(stream, SnapshotFormat.kMaxRenderVerticesPerPart, "Render vertex");
             int logicalVertexCount = ReadCount(stream, SnapshotFormat.kMaxLogicalVerticesPerPart, "Logical vertex");
@@ -339,12 +339,13 @@ namespace PO2.Persistence.Format
 
             if (payloadLength > stream.Length - stream.Position)
                 throw new EndOfStreamException("Part payload extends beyond the object body.");
-            Dictionary<SnapshotStreamSemantic, EncodedStream> decodedStreams = new Dictionary<SnapshotStreamSemantic, EncodedStream>();
+            Dictionary<SnapshotStreamSemantic, EncodedStreamView> decodedStreams = new Dictionary<SnapshotStreamSemantic, EncodedStreamView>();
             for (int i = 0; i < descriptors.Length; i++)
             {
                 StreamDescriptor descriptor = descriptors[i];
-                byte[] payload = SnapshotBinary.ReadExactBytes(stream, descriptor.StoredByteLength);
-                decodedStreams.Add(descriptor.Semantic, new EncodedStream(descriptor.Semantic, descriptor.Codec, descriptor.ElementCount, descriptor.DecodedByteLength, payload));
+                var payload = new ArraySegment<byte>(block, checked(origin + (int)stream.Position), descriptor.StoredByteLength);
+                stream.Position += descriptor.StoredByteLength;
+                decodedStreams.Add(descriptor.Semantic, new EncodedStreamView(descriptor.Semantic, descriptor.Codec, descriptor.ElementCount, descriptor.DecodedByteLength, payload));
             }
 
             // Optional render streams may be absent.
@@ -588,9 +589,9 @@ namespace PO2.Persistence.Format
             return new Color(SnapshotBinary.ReadSingle(stream), SnapshotBinary.ReadSingle(stream), SnapshotBinary.ReadSingle(stream), SnapshotBinary.ReadSingle(stream));
         }
 
-        private static Vector3[] DecodeOptionalVector3(Dictionary<SnapshotStreamSemantic, EncodedStream> streams, SnapshotStreamSemantic semantic, int expectedCount)
+        private static Vector3[] DecodeOptionalVector3(Dictionary<SnapshotStreamSemantic, EncodedStreamView> streams, SnapshotStreamSemantic semantic, int expectedCount)
         {
-            if (!streams.TryGetValue(semantic, out EncodedStream encoded)) return null;
+            if (!streams.TryGetValue(semantic, out EncodedStreamView encoded)) return null;
             Vector3[] result = ObjectBlockCodec.DecodeVector3(encoded);
             if (result.Length != expectedCount)
             {
@@ -600,9 +601,9 @@ namespace PO2.Persistence.Format
             return result;
         }
 
-        private static Vector4[] DecodeOptionalVector4(Dictionary<SnapshotStreamSemantic, EncodedStream> streams, SnapshotStreamSemantic semantic, int expectedCount)
+        private static Vector4[] DecodeOptionalVector4(Dictionary<SnapshotStreamSemantic, EncodedStreamView> streams, SnapshotStreamSemantic semantic, int expectedCount)
         {
-            if (!streams.TryGetValue(semantic, out EncodedStream encoded)) return null;
+            if (!streams.TryGetValue(semantic, out EncodedStreamView encoded)) return null;
             Vector4[] result = ObjectBlockCodec.DecodeVector4(encoded);
             if (result.Length != expectedCount)
             {
@@ -612,9 +613,9 @@ namespace PO2.Persistence.Format
             return result;
         }
 
-        private static Color32[] DecodeOptionalColors(Dictionary<SnapshotStreamSemantic, EncodedStream> streams, int expectedCount)
+        private static Color32[] DecodeOptionalColors(Dictionary<SnapshotStreamSemantic, EncodedStreamView> streams, int expectedCount)
         {
-            if (!streams.TryGetValue(SnapshotStreamSemantic.VertexColors, out EncodedStream encoded)) return null;
+            if (!streams.TryGetValue(SnapshotStreamSemantic.VertexColors, out EncodedStreamView encoded)) return null;
             Color32[] result = ObjectBlockCodec.DecodeColors(encoded);
             if (result.Length != expectedCount)
             {
@@ -624,7 +625,7 @@ namespace PO2.Persistence.Format
             return result;
         }
 
-        private static void RequireStream(Dictionary<SnapshotStreamSemantic, EncodedStream> streams, SnapshotStreamSemantic semantic)
+        private static void RequireStream(Dictionary<SnapshotStreamSemantic, EncodedStreamView> streams, SnapshotStreamSemantic semantic)
         {
             if (!streams.ContainsKey(semantic))
             {

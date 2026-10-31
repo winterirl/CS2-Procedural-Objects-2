@@ -187,11 +187,13 @@ namespace PO2.Rendering.Objects
             bool hasCombinedTexCoord3 = false;
             int combinedUV0Dimension = 2;
 
+            var areaGroups = TopologyRendererWork.GroupTriangles(sourcePart.TriangleSurfaceAreaIds, default);
+            var geometry = new SurfaceAreaGeometryBuilder(sourcePart.Mesh);
             for (int areaIndex = 0; areaIndex < sourcePart.SurfaceAreas.Count; areaIndex++)
             {
                 SurfaceArea sourceArea = sourcePart.SurfaceAreas[areaIndex];
 
-                int[] sourceTriangleIds = GetSurfaceAreaTriangleIds(sourcePart, sourceArea.Id);
+                int[] sourceTriangleIds = areaGroups.TryGetValue(sourceArea.Id, out var group) ? group : Array.Empty<int>();
 
                 if (sourceTriangleIds.Length == 0)
                 {
@@ -202,7 +204,8 @@ namespace PO2.Rendering.Objects
                 // Windows also need isolated vertex streams. Surface Area data stays unchanged.
                 bool isolateArea = RequiresIsolatedRenderer(sourceArea.Material);
 
-                SurfaceAreaMeshBuildResult areaBuild = BuildSurfaceAreaSourceMesh(sourcePart, sourceArea, sourceTriangleIds);
+                geometry.Build(sourceArea, sourceTriangleIds, out var preparedMesh, out var sourceIndices);
+                var areaBuild = new SurfaceAreaMeshBuildResult { Mesh = preparedMesh, SourceVertexIndices = sourceIndices };
                 MeshData areaMesh = areaBuild.Mesh;
 
                 MeshTopology areaTopology = null;
@@ -220,9 +223,7 @@ namespace PO2.Rendering.Objects
                 // Original mapping preserves all authored streams exactly as imported.
                 if (IsGeneratedMappingMode(sourceArea.Material.Mapping.Mode))
                 {
-                    areaTopology = MeshTopology.Build(areaMesh);
-
-                    generatedMapping = new GeneratedMapping(areaMesh, areaTopology, sourceArea.SourceVertexAttributes, sourceArea.MappingSeed, areaBuild.SourceVertexIndices);
+                    generatedMapping = GeneratedMapping.Create(areaMesh, sourceArea.SourceVertexAttributes, sourceArea.MappingSeed, areaBuild.SourceVertexIndices, out areaTopology);
 
                     generatedMapping.Update(areaMesh, areaTopology, objectScale, sourceArea.Material.Mapping, sourceArea.Material.GetEffectiveTileSizeMeters(), true);
 
@@ -362,88 +363,6 @@ namespace PO2.Rendering.Objects
             }
 
             return triangleIds.ToArray();
-        }
-
-        private static SurfaceAreaMeshBuildResult BuildSurfaceAreaSourceMesh(MeshPart part, SurfaceArea surfaceArea, int[] sourceTriangleIds)
-        {
-            MeshData source = part.Mesh;
-            bool hasNormals = source.Normals != null && source.Normals.Length == source.Vertices.Length;
-            bool hasTangents = source.Tangents != null && source.Tangents.Length == source.Vertices.Length;
-            bool hasUV0 = source.UV0 != null && source.UV0.Length == source.Vertices.Length;
-            bool areaHasVertexColors = (surfaceArea.SourceVertexAttributes & VertexAttributeFlags.VertexColor) != 0;
-            bool areaHasTexCoord1 = (surfaceArea.SourceVertexAttributes & VertexAttributeFlags.TexCoord1) != 0;
-            bool areaHasTexCoord3 = (surfaceArea.SourceVertexAttributes & VertexAttributeFlags.TexCoord3) != 0;
-            bool hasVertexColors = areaHasVertexColors && source.VertexColors != null && source.VertexColors.Length == source.Vertices.Length;
-            bool hasTexCoord1 = areaHasTexCoord1 && source.TexCoord1 != null && source.TexCoord1.Length == source.Vertices.Length;
-            bool hasTexCoord3 = areaHasTexCoord3 && source.TexCoord3 != null && source.TexCoord3.Length == source.Vertices.Length;
-
-            Dictionary<int, int> sourceToArea = new Dictionary<int, int>();
-            List<int> sourceVertexIndices = new List<int>();
-            List<Vector3> vertices = new List<Vector3>();
-            List<Vector3> normals = hasNormals ? new List<Vector3>() : null;
-            List<Vector4> tangents = hasTangents ? new List<Vector4>() : null;
-            List<Vector4> uv0 = hasUV0 ? new List<Vector4>() : null;
-            List<Color32> vertexColors = hasVertexColors ? new List<Color32>() : null;
-            List<Vector4> texCoord1 = hasTexCoord1 ? new List<Vector4>() : null;
-            List<Vector4> texCoord3 = hasTexCoord3 ? new List<Vector4>() : null;
-            int[] triangles = new int[sourceTriangleIds.Length * 3];
-
-            for (int i = 0; i < sourceTriangleIds.Length; i++)
-            {
-                int sourceOffset = sourceTriangleIds[i] * 3;
-                int targetOffset = i * 3;
-
-                for (int corner = 0; corner < 3; corner++)
-                {
-                    int sourceVertexIndex = source.Triangles[sourceOffset + corner];
-
-                    if (!sourceToArea.TryGetValue(sourceVertexIndex, out int areaVertexIndex))
-                    {
-                        areaVertexIndex = vertices.Count;
-                        sourceToArea.Add(sourceVertexIndex, areaVertexIndex);
-                        sourceVertexIndices.Add(sourceVertexIndex);
-                        vertices.Add(source.Vertices[sourceVertexIndex]);
-
-                        if (hasNormals)
-                        {
-                            normals.Add(source.Normals[sourceVertexIndex]);
-                        }
-
-                        if (hasTangents)
-                        {
-                            tangents.Add(source.Tangents[sourceVertexIndex]);
-                        }
-
-                        if (hasUV0)
-                        {
-                            uv0.Add(source.UV0[sourceVertexIndex]);
-                        }
-
-                        if (hasVertexColors)
-                        {
-                            vertexColors.Add(source.VertexColors[sourceVertexIndex]);
-                        }
-
-                        if (hasTexCoord1)
-                        {
-                            texCoord1.Add(source.TexCoord1[sourceVertexIndex]);
-                        }
-
-                        if (hasTexCoord3)
-                        {
-                            texCoord3.Add(source.TexCoord3[sourceVertexIndex]);
-                        }
-                    }
-
-                    triangles[targetOffset + corner] = areaVertexIndex;
-                }
-            }
-
-            return new SurfaceAreaMeshBuildResult
-            {
-                Mesh = new MeshData(vertices.ToArray(), hasNormals ? normals.ToArray() : null, hasTangents ? tangents.ToArray() : null, hasUV0 ? uv0.ToArray() : null, hasVertexColors ? vertexColors.ToArray() : null, hasTexCoord1 ? texCoord1.ToArray() : null, hasTexCoord3 ? texCoord3.ToArray() : null, triangles),
-                SourceVertexIndices = sourceVertexIndices.ToArray(),
-            };
         }
 
         private static void AppendAreaVertices(List<Vector3> combinedVertices, List<Vector3> combinedNormals, List<Vector4> combinedUVs, List<Vector4> combinedTangents, List<Color32> combinedColors, List<Vector4> combinedTexCoord1, List<Vector4> combinedTexCoord3, Vector3[] vertices, Vector3[] normals, Vector4[] uvs, Vector4[] tangents, Color32[] vertexColors, Vector4[] texCoord1, Vector4[] texCoord3)

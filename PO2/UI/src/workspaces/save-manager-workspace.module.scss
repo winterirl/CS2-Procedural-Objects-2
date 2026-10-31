@@ -53,9 +53,9 @@
     background-color: $color-accent-muted;
 }
 
-.selection:disabled { opacity: 0.45; }
-.selection:hover:not(:disabled) .checkbox { border-color: $color-focus; }
-.selection:focus .checkbox { border-color: $color-focus; }
+.selectionDisabled { opacity: 0.45; }
+.selection.selectionEnabled:hover .checkbox { border-color: $color-focus; }
+.selection.selectionEnabled:focus .checkbox { border-color: $color-focus; }
 
 .checkmark {
     width: 5rem;

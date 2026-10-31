@@ -132,6 +132,17 @@ export type PerformanceDiagnostics =
     };
 
 export type SaveManagerState = {
+    page: number;
+    pageCount: number;
+    matchCount: number;
+    totalCount: number;
+    totalBytes: number;
+    pageBytes: number;
+    session: string;
+    filter: string;
+    oldest: boolean;
+    issueCount: number;
+    lineages: { id: string; name: string; count: number }[];
     revision: number;
     saves: SaveTileData[];
     scanSucceeded: boolean;

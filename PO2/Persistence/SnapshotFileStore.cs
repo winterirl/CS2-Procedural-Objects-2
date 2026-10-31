@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using PO2.Localization;
 using PO2.Persistence.Format;
 using PO2.Persistence.Model;
+using PO2.Persistence.PreparedTopology;
 
 namespace PO2.Persistence
 {
@@ -13,60 +13,6 @@ namespace PO2.Persistence
     // A PO2 failure NEVER deletes or replaces the previous known-good snapshot.
     internal sealed partial class SnapshotFileStore
     {
-        private readonly string m_RootPath;
-
-        internal SnapshotFileStore(string rootPath)
-        {
-            if (string.IsNullOrWhiteSpace(rootPath))
-            {
-                throw new ArgumentException("PO2 snapshot root path cannot be blank.", nameof(rootPath));
-            }
-
-            m_RootPath = rootPath;
-        }
-
-        internal string RootPath => m_RootPath;
-
-        internal TempCleanupResult CleanupStaleTemps()
-        {
-            List<string> deleted = new List<string>();
-            List<TempCleanupError> failed = new List<TempCleanupError>();
-
-            if (!Directory.Exists(m_RootPath))
-            {
-                return new TempCleanupResult(deleted, failed);
-            }
-
-            // Only top-level transaction temps belong to this cleanup.
-            // Never walk arbitrary directories under ModsData looking for files to delete.
-            string[] tempFiles;
-            try
-            {
-                tempFiles = Directory.GetFiles(m_RootPath, "*.po2.tmp", SearchOption.TopDirectoryOnly);
-            }
-            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException)
-            {
-                failed.Add(new TempCleanupError(m_RootPath, exception.Message));
-                return new TempCleanupResult(deleted, failed);
-            }
-
-            for (int i = 0; i < tempFiles.Length; i++)
-            {
-                string tempPath = tempFiles[i];
-                try
-                {
-                    File.Delete(tempPath);
-                    deleted.Add(tempPath);
-                }
-                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException)
-                {
-                    failed.Add(new TempCleanupError(tempPath, exception.Message));
-                }
-            }
-
-            return new TempCleanupResult(deleted, failed);
-        }
-
         internal SnapshotLoadResult ReadExact(string exactSaveFileKey, Guid expectedSaveGuid, Guid expectedSessionGuid)
         {
             if (string.IsNullOrWhiteSpace(exactSaveFileKey))
@@ -74,7 +20,7 @@ namespace PO2.Persistence
                 throw new ArgumentException("Exact save file key cannot be blank.", nameof(exactSaveFileKey));
             }
 
-            // The filename chooses a candidate, but embedded identities still have to agree.
+            // The filename chooses a candidate but embedded identities still have to agree.
             // A renamed/copied sidecar is not silently accepted.
             string path = Path.Combine(m_RootPath, exactSaveFileKey + ".po2");
             if (!File.Exists(path))
@@ -90,7 +36,7 @@ namespace PO2.Persistence
                 using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 64, FileOptions.SequentialScan))
                 {
                     bytes = stream.Length;
-                    if (!SnapshotReader.TryRead(stream, out result, out string error))
+                    if (!SnapshotReader.TryRead(stream, out result, out string error, parallel: true, expectedSaveGuid: expectedSaveGuid, expectedSessionGuid: expectedSessionGuid))
                     {
                         timer.Stop();
                         return SnapshotLoadResult.Invalid(path, bytes, timer.Elapsed.TotalMilliseconds, error);
@@ -119,99 +65,7 @@ namespace PO2.Persistence
             }
         }
 
-        internal SaveDiscoveryResult DiscoverSaves(GameSaveCatalogSnapshot catalog = null)
-        {
-            catalog = catalog ?? GameSaveCatalogSnapshot.s_Unavailable;
-            List<SaveRecord> saves = new List<SaveRecord>();
-            List<SaveDiscoveryError> rejected = new List<SaveDiscoveryError>();
-
-            string[] files;
-            try
-            {
-                files = Directory.GetFiles(m_RootPath, "*.po2", SearchOption.TopDirectoryOnly);
-            }
-            catch (DirectoryNotFoundException) when (!File.Exists(m_RootPath))
-            {
-                return new SaveDiscoveryResult(saves, rejected);
-            }
-            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is ArgumentException)
-            {
-                rejected.Add(new SaveDiscoveryError(string.Empty, m_RootPath, LocalizedText.FromException(exception)));
-                return new SaveDiscoveryResult(saves, rejected, false);
-            }
-
-            // Discovery is cheap ~ validate container/header data and session identity,
-            // but leave every object block untouched for now.
-            for (int i = 0; i < files.Length; i++)
-            {
-                string path = files[i];
-                string fileKey = Path.GetFileNameWithoutExtension(path);
-
-                if (!IsValidExactFileKey(fileKey))
-                {
-                    rejected.Add(new SaveDiscoveryError(fileKey, path, LocalizedText.For("PO2.SaveManager.Scan.Error.InvalidFilename")));
-                    continue;
-                }
-
-                try
-                {
-                    FileInfo info = new FileInfo(path);
-                    SnapshotHeaderInfo header;
-                    using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan))
-                    {
-                        if (!SnapshotReader.TryReadHeader(stream, out header, out string error))
-                        {
-                            rejected.Add(new SaveDiscoveryError(fileKey, path, LocalizedText.For("PO2.SaveManager.Scan.Error.InvalidHeader", ("details", error))));
-                            continue;
-                        }
-                    }
-
-                    if (!string.Equals(fileKey, SaveIdentity.ToFileKey(header.SaveGuid), StringComparison.OrdinalIgnoreCase))
-                    {
-                        rejected.Add(new SaveDiscoveryError(fileKey, path, LocalizedText.For("PO2.SaveManager.Scan.Error.IdentityMismatch")));
-                        continue;
-                    }
-
-                    saves.Add(new SaveRecord(fileKey, path, header, info.Length, info.LastWriteTimeUtc, catalog));
-                }
-                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is InvalidDataException || exception is EndOfStreamException || exception is OverflowException || exception is ArgumentException)
-                {
-                    rejected.Add(new SaveDiscoveryError(fileKey, path, LocalizedText.FromException(exception)));
-                }
-            }
-
-            saves.Sort((left, right) =>
-            {
-                // Most recent is the useful default presentation.
-                // File key breaks timestamp ties so UI order stays stable.
-                int byTime = right.DisplayTimeUtc.CompareTo(left.DisplayTimeUtc);
-                return byTime != 0 ? byTime : string.CompareOrdinal(left.FileKey, right.FileKey);
-            });
-
-            return new SaveDiscoveryResult(saves, rejected);
-        }
-
-        private static bool IsValidExactFileKey(string fileKey)
-        {
-            if (string.IsNullOrEmpty(fileKey) || fileKey.Length != 32)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < fileKey.Length; i++)
-            {
-                char c = fileKey[i];
-                bool isHex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-                if (!isHex)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        internal SnapshotWriteResult WriteTransactional(string exactSaveFileKey, Guid exactSaveGuid, Guid sessionGuid, SnapshotMetadata metadata, IReadOnlyList<PersistenceObjectData> objects, SnapshotEncodingOptions options = null)
+        internal SnapshotWriteResult WriteTransactional(string exactSaveFileKey, Guid exactSaveGuid, Guid sessionGuid, SnapshotMetadata metadata, IReadOnlyList<PersistenceObjectData> objects, SnapshotEncodingOptions options = null, CitySaveCapture prepared = null)
         {
             if (string.IsNullOrWhiteSpace(exactSaveFileKey))
             {
@@ -233,33 +87,25 @@ namespace PO2.Persistence
             Stopwatch totalTimer = Stopwatch.StartNew();
             Stopwatch phaseTimer = Stopwatch.StartNew();
             var encodingMetrics = new EncodingMetrics();
-            double encodeMs, writeMs;
             long storedBytes;
-            // Keep the writer's buffer through the disk write instead of copying
-            // the complete snapshot into another byte array.
-            using (var encoded = new MemoryStream())
+            var expectedIds = new Guid[objects.Count];
+            for (int i = 0; i < objects.Count; i++)
+                expectedIds[i] = objects[i]?.PersistentId ?? throw new InvalidDataException("Snapshot object is null.");
+            TryDeleteTemp(tempPath);
+            using (Stream file = m_IO.CreateTemporary(tempPath))
+            using (var output = new BufferedStream(file, 256 * 1024))
             {
-                SnapshotWriter.Write(encoded, exactSaveGuid, sessionGuid, metadata, objects, options, encodingMetrics);
-                encodeMs = phaseTimer.Elapsed.TotalMilliseconds;
-                storedBytes = encoded.Length;
-                TryDeleteTemp(tempPath);
-                phaseTimer.Restart();
-                using (FileStream stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1024 * 64, FileOptions.WriteThrough))
-                {
-                    encoded.WriteTo(stream);
-                    stream.Flush(true);
-                }
-
-                writeMs = phaseTimer.Elapsed.TotalMilliseconds;
+                SnapshotWriter.Write(output, exactSaveGuid, sessionGuid, metadata, objects, options, encodingMetrics, prepared);
+                storedBytes = output.Length;
+                output.Flush();
+                m_IO.FlushToDisk(file);
             }
+            double encodeWriteMs = phaseTimer.Elapsed.TotalMilliseconds;
 
-            // Reopen the actual bytes that reached disk and validate the complete
-            // header/directory/object checksums before finalization.
+            // Verify the bytes actually stored on disk before publishing the sidecar.
             phaseTimer.Restart();
-            using (FileStream stream = new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 64, FileOptions.SequentialScan))
-            {
-                ValidateSnapshotStream(stream, exactSaveGuid, sessionGuid, objects.Count, metadata, "temporary snapshot");
-            }
+            using (Stream stream = m_IO.OpenVerification(tempPath))
+                ValidateSnapshotStream(stream, exactSaveGuid, sessionGuid, expectedIds, metadata, "temporary snapshot", prepared);
 
             double diskVerifyMs = phaseTimer.Elapsed.TotalMilliseconds;
 
@@ -268,67 +114,31 @@ namespace PO2.Persistence
             double finalizeMs = phaseTimer.Elapsed.TotalMilliseconds;
 
             totalTimer.Stop();
-            return new SnapshotWriteResult(finalPath, storedBytes, objects.Count, encodeMs, writeMs, diskVerifyMs, finalizeMs, totalTimer.Elapsed.TotalMilliseconds, options?.Compression ?? SaveCompression.Compact, encodingMetrics);
+            return new SnapshotWriteResult(finalPath, storedBytes, objects.Count, encodeWriteMs, diskVerifyMs, finalizeMs, totalTimer.Elapsed.TotalMilliseconds, options?.Compression ?? SaveCompression.Compact, encodingMetrics, prepared == null ? SnapshotFormat.kContainerVersion : SnapshotFormat.kPreparedContainerVersion);
         }
 
-        private static void ValidateSnapshotStream(Stream stream, Guid expectedSaveGuid, Guid expectedSessionGuid, int expectedObjectCount, SnapshotMetadata expectedMetadata, string label)
+        private static void ValidateSnapshotStream(Stream stream, Guid expectedSaveGuid, Guid expectedSessionGuid,
+            IReadOnlyList<Guid> expectedIds, SnapshotMetadata expectedMetadata, string label, CitySaveCapture prepared)
         {
-            if (!SnapshotReader.TryRead(stream, out SnapshotReadResult result, out string error))
+            try { SnapshotReader.Verify(stream, expectedSaveGuid, expectedSessionGuid, expectedMetadata, expectedIds, prepared: prepared); }
+            catch (InvalidDataException exception)
             {
-                throw new InvalidDataException($"PO2 {label} failed self-validation: {error}");
-            }
-
-            ValidateReadResult(result, expectedSaveGuid, expectedSessionGuid, expectedObjectCount, expectedMetadata, label);
-        }
-
-        private static void ValidateReadResult(SnapshotReadResult result, Guid expectedSaveGuid, Guid expectedSessionGuid, int expectedObjectCount, SnapshotMetadata expectedMetadata, string label)
-        {
-            if (result == null)
-            {
-                throw new InvalidDataException($"PO2 {label} produced no read result.");
-            }
-
-            if (result.SaveGuid != expectedSaveGuid)
-            {
-                throw new InvalidDataException($"PO2 {label} exact save identity mismatch.");
-            }
-
-            if (result.SessionGuid != expectedSessionGuid)
-            {
-                throw new InvalidDataException($"PO2 {label} session identity mismatch.");
-            }
-
-            if (result.ContainerVersion != SnapshotFormat.kContainerVersion || result.MetadataStatus != SnapshotMetadataStatus.Available || expectedMetadata == null || !expectedMetadata.Equals(result.Metadata))
-            {
-                throw new InvalidDataException($"PO2 {label} metadata did not round-trip: {result.MetadataStatus}. {result.MetadataWarning}");
-            }
-
-            // Skipping a damaged historical object is useful during load, but a
-            // file we just wrote must round-trip every captured object.
-            if (result.SkippedObjects.Count != 0)
-            {
-                throw new InvalidDataException($"PO2 {label} unexpectedly skipped {result.SkippedObjects.Count} object(s).");
-            }
-
-            if (result.Objects.Count != expectedObjectCount)
-            {
-                throw new InvalidDataException($"PO2 {label} object count mismatch: expected {expectedObjectCount}, got {result.Objects.Count}.");
+                throw new InvalidDataException($"PO2 {label} failed self-validation: {exception.Message}", exception);
             }
         }
 
-        private static void FinalizeTransactional(string tempPath, string finalPath)
+        private void FinalizeTransactional(string tempPath, string finalPath)
         {
             if (File.Exists(finalPath))
             {
                 // File.Replace keeps the old final file intact if replacement fails.
                 // Do not fall back to delete+move here.
-                File.Replace(tempPath, finalPath, null);
+                m_IO.Replace(tempPath, finalPath);
             }
             else
             {
-                // Same-volume rename from the adjacent temp path is the first
-                // publication for this exact save GUID.
-                File.Move(tempPath, finalPath);
+                // Same-volume rename from the adjacent temp path is the first publication for this exact save GUID.
+                m_IO.Move(tempPath, finalPath);
             }
         }
 
@@ -350,53 +160,29 @@ namespace PO2.Persistence
         }
     }
 
-    internal sealed class TempCleanupResult
-    {
-        internal TempCleanupResult(IReadOnlyList<string> deletedPaths, IReadOnlyList<TempCleanupError> failures)
-        {
-            DeletedPaths = deletedPaths ?? Array.Empty<string>();
-            Failures = failures ?? Array.Empty<TempCleanupError>();
-        }
-
-        internal IReadOnlyList<string> DeletedPaths { get; }
-        internal IReadOnlyList<TempCleanupError> Failures { get; }
-    }
-
-    internal sealed class TempCleanupError
-    {
-        internal TempCleanupError(string path, string message)
-        {
-            Path = path ?? string.Empty;
-            Message = message ?? string.Empty;
-        }
-
-        internal string Path { get; }
-        internal string Message { get; }
-    }
-
     internal sealed class SnapshotWriteResult
     {
-        internal SnapshotWriteResult(string finalPath, long bytes, int objectCount, double encodeMs, double writeMs, double diskVerifyMs, double finalizeMs, double totalMs, SaveCompression compression, EncodingMetrics encodingMetrics)
+        internal SnapshotWriteResult(string finalPath, long bytes, int objectCount, double encodeWriteMs, double diskVerifyMs, double finalizeMs, double totalMs, SaveCompression compression, EncodingMetrics encodingMetrics, ushort containerVersion = SnapshotFormat.kContainerVersion)
         {
+            ContainerVersion = containerVersion;
             Compression = compression;
             EncodingMetrics = encodingMetrics;
             FinalPath = finalPath;
             Bytes = bytes;
             ObjectCount = objectCount;
-            EncodeMs = encodeMs;
-            WriteMs = writeMs;
+            EncodeWriteMs = encodeWriteMs;
             DiskVerifyMs = diskVerifyMs;
             FinalizeMs = finalizeMs;
             TotalMs = totalMs;
         }
 
+        internal ushort ContainerVersion { get; }
         internal SaveCompression Compression { get; }
         internal EncodingMetrics EncodingMetrics { get; }
         internal string FinalPath { get; }
         internal long Bytes { get; }
         internal int ObjectCount { get; }
-        internal double EncodeMs { get; }
-        internal double WriteMs { get; }
+        internal double EncodeWriteMs { get; }
         internal double DiskVerifyMs { get; }
         internal double FinalizeMs { get; }
         internal double TotalMs { get; }

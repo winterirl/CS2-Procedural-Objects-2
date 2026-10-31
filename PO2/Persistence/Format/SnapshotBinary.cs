@@ -183,11 +183,15 @@ namespace PO2.Persistence.Format
             bytes[offset + 3] = (byte)(bits.UInt >> 24);
         }
 
-        internal static float ReadFloat32(byte[] bytes, int index, bool shuffled)
+        internal static float ReadFloat32(byte[] bytes, int index, bool shuffled) =>
+            ReadFloat32(new ArraySegment<byte>(bytes), index, shuffled);
+
+        internal static float ReadFloat32(ArraySegment<byte> bytes, int index, bool shuffled)
         {
-            int stride = shuffled ? bytes.Length / 4 : 1;
-            int offset = shuffled ? index : index * 4;
-            uint bits = (uint)(bytes[offset] | (bytes[offset + stride] << 8) | (bytes[offset + stride * 2] << 16) | (bytes[offset + stride * 3] << 24));
+            int stride = shuffled ? bytes.Count / 4 : 1;
+            int offset = bytes.Offset + (shuffled ? index : index * 4);
+            byte[] data = bytes.Array;
+            uint bits = (uint)(data[offset] | (data[offset + stride] << 8) | (data[offset + stride * 2] << 16) | (data[offset + stride * 3] << 24));
             return new FloatBits { UInt = bits }.Float;
         }
 
@@ -273,15 +277,18 @@ namespace PO2.Persistence.Format
             return result;
         }
 
-        internal static int[] DecodeUnsignedFixed(byte[] bytes, int count, SnapshotCodec codec)
+        internal static int[] DecodeUnsignedFixed(byte[] bytes, int count, SnapshotCodec codec) =>
+            DecodeUnsignedFixed(new ArraySegment<byte>(bytes), count, codec);
+
+        internal static int[] DecodeUnsignedFixed(ArraySegment<byte> bytes, int count, SnapshotCodec codec)
         {
-            if (bytes == null) throw new ArgumentNullException(nameof(bytes));
+            if (bytes.Array == null) throw new ArgumentNullException(nameof(bytes));
             if (count < 0) throw new InvalidDataException("Negative unsigned fixed element count.");
             int width = GetUnsignedFixedWidth(codec);
             int expectedLength = checked(count * width);
-            if (bytes.Length != expectedLength)
+            if (bytes.Count != expectedLength)
             {
-                throw new InvalidDataException($"Unsigned fixed stream length {bytes.Length} does not match expected {expectedLength}.");
+                throw new InvalidDataException($"Unsigned fixed stream length {bytes.Count} does not match expected {expectedLength}.");
             }
 
             int[] result = new int[count];
@@ -291,14 +298,14 @@ namespace PO2.Persistence.Format
                 switch (width)
                 {
                     case 1:
-                        result[i] = bytes[offset++];
+                        result[i] = bytes.Array[bytes.Offset + (offset++)];
                         break;
                     case 2:
-                        result[i] = bytes[offset] | (bytes[offset + 1] << 8);
+                        result[i] = bytes.Array[bytes.Offset + (offset)] | (bytes.Array[bytes.Offset + (offset + 1)] << 8);
                         offset += 2;
                         break;
                     default:
-                        uint raw = (uint)(bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24));
+                        uint raw = (uint)(bytes.Array[bytes.Offset + (offset)] | (bytes.Array[bytes.Offset + (offset + 1)] << 8) | (bytes.Array[bytes.Offset + (offset + 2)] << 16) | (bytes.Array[bytes.Offset + (offset + 3)] << 24));
                         if (raw > int.MaxValue)
                         {
                             throw new InvalidDataException("UnsignedFixed32 value exceeds Int32 range.");
@@ -329,27 +336,47 @@ namespace PO2.Persistence.Format
         {
             if (values == null || values.Length == 0) return Array.Empty<byte>();
 
-            // ZigZag keeps small negative deltas small too, which is useful when triangle indices step backward within a face.
-            using (MemoryStream stream = new MemoryStream(Math.Max(16, values.Length)))
+            int size = 0, previous = 0;
+            foreach (int value in values)
             {
-                int previous = 0;
-                for (int i = 0; i < values.Length; i++)
-                {
-                    int delta = unchecked(values[i] - previous);
-                    WriteVarUInt(stream, ZigZagEncode(delta));
-                    previous = values[i];
-                }
-
-                return stream.ToArray();
+                size = checked(size + VarUIntSize(ZigZagEncode(unchecked(value - previous))));
+                previous = value;
             }
+            var bytes = new byte[size];
+            int cursor = 0;
+            previous = 0;
+            foreach (int value in values)
+            {
+                WriteVarUInt(bytes, ref cursor, ZigZagEncode(unchecked(value - previous)));
+                previous = value;
+            }
+            return bytes;
         }
 
-        internal static int[] DecodeDeltaZigZagVarInt(byte[] bytes, int count)
+        private static int VarUIntSize(uint value)
+        {
+            if (value < 1u << 7) return 1;
+            if (value < 1u << 14) return 2;
+            if (value < 1u << 21) return 3;
+            if (value < 1u << 28) return 4;
+            return 5;
+        }
+
+        private static void WriteVarUInt(byte[] bytes, ref int cursor, uint value)
+        {
+            while (value >= 128) { bytes[cursor++] = (byte)(value | 128); value >>= 7; }
+            bytes[cursor++] = (byte)value;
+        }
+
+        internal static int[] DecodeDeltaZigZagVarInt(byte[] bytes, int count) =>
+            DecodeDeltaZigZagVarInt(bytes == null ? default(ArraySegment<byte>) : new ArraySegment<byte>(bytes), count);
+
+        internal static int[] DecodeDeltaZigZagVarInt(ArraySegment<byte> bytes, int count)
         {
             if (count < 0) throw new InvalidDataException("Negative decoded integer count.");
             if (count == 0)
             {
-                if (bytes != null && bytes.Length != 0)
+                if (bytes.Array != null && bytes.Count != 0)
                 {
                     throw new InvalidDataException("Empty delta stream has trailing bytes.");
                 }
@@ -357,10 +384,10 @@ namespace PO2.Persistence.Format
                 return Array.Empty<int>();
             }
 
-            if (bytes == null) throw new ArgumentNullException(nameof(bytes));
+            if (bytes.Array == null) throw new ArgumentNullException(nameof(bytes));
 
             int[] result = new int[count];
-            using (MemoryStream stream = new MemoryStream(bytes, false))
+            using (MemoryStream stream = new MemoryStream(bytes.Array, bytes.Offset, bytes.Count, false))
             {
                 int previous = 0;
                 for (int i = 0; i < count; i++)
@@ -384,34 +411,38 @@ namespace PO2.Persistence.Format
         {
             if (values == null || values.Length == 0) return Array.Empty<byte>();
 
-            using (MemoryStream stream = new MemoryStream())
+            int size = 0;
+            for (int start = 0; start < values.Length;)
             {
-                int start = 0;
-                while (start < values.Length)
-                {
-                    int value = values[start];
-                    if (value < 0)
-                    {
-                        throw new InvalidDataException("RLE values must be non-negative.");
-                    }
-
-                    int end = start + 1;
-                    while (end < values.Length && values[end] == value) end++;
-                    WriteVarUInt(stream, checked((uint)value));
-                    WriteVarUInt(stream, checked((uint)(end - start)));
-                    start = end;
-                }
-
-                return stream.ToArray();
+                int value = values[start];
+                if (value < 0) throw new InvalidDataException("RLE values must be non-negative.");
+                int end = start + 1;
+                while (end < values.Length && values[end] == value) end++;
+                size = checked(size + VarUIntSize((uint)value) + VarUIntSize((uint)(end - start)));
+                start = end;
             }
+            var bytes = new byte[size];
+            int cursor = 0;
+            for (int start = 0; start < values.Length;)
+            {
+                int end = start + 1;
+                while (end < values.Length && values[end] == values[start]) end++;
+                WriteVarUInt(bytes, ref cursor, (uint)values[start]);
+                WriteVarUInt(bytes, ref cursor, (uint)(end - start));
+                start = end;
+            }
+            return bytes;
         }
 
-        internal static int[] DecodeRleVarUInt(byte[] bytes, int expectedCount)
+        internal static int[] DecodeRleVarUInt(byte[] bytes, int expectedCount) =>
+            DecodeRleVarUInt(bytes == null ? default(ArraySegment<byte>) : new ArraySegment<byte>(bytes), expectedCount);
+
+        internal static int[] DecodeRleVarUInt(ArraySegment<byte> bytes, int expectedCount)
         {
             if (expectedCount < 0) throw new InvalidDataException("Negative RLE decoded count.");
             if (expectedCount == 0)
             {
-                if (bytes != null && bytes.Length != 0)
+                if (bytes.Array != null && bytes.Count != 0)
                 {
                     throw new InvalidDataException("Empty RLE stream has trailing bytes.");
                 }
@@ -419,11 +450,11 @@ namespace PO2.Persistence.Format
                 return Array.Empty<int>();
             }
 
-            if (bytes == null) throw new ArgumentNullException(nameof(bytes));
+            if (bytes.Array == null) throw new ArgumentNullException(nameof(bytes));
 
             int[] result = new int[expectedCount];
             int destination = 0;
-            using (MemoryStream stream = new MemoryStream(bytes, false))
+            using (MemoryStream stream = new MemoryStream(bytes.Array, bytes.Offset, bytes.Count, false))
             {
                 while (destination < expectedCount)
                 {
@@ -463,22 +494,26 @@ namespace PO2.Persistence.Format
         internal static byte[] Deflate(byte[] raw)
         {
             if (raw == null) throw new ArgumentNullException(nameof(raw));
+            return DeflateBuffer(raw).ToArray();
+        }
+
+        internal static EncodedBuffer DeflateBuffer(EncodedBuffer raw)
+        {
+            if (raw.Array == null) throw new ArgumentNullException(nameof(raw));
             if (raw.Length == 0) return Array.Empty<byte>();
-
-            using (MemoryStream output = new MemoryStream())
+            using (var output = new MemoryStream())
             {
-                using (DeflateStream deflate = new DeflateStream(output, CompressionLevel.Fastest, true))
-                {
-                    deflate.Write(raw, 0, raw.Length);
-                }
-
-                return output.ToArray();
+                using (var deflate = new DeflateStream(output, CompressionLevel.Fastest, true)) raw.WriteTo(deflate);
+                return EncodedBuffer.FromStream(output);
             }
         }
 
-        internal static byte[] Inflate(byte[] compressed, int expectedLength)
+        internal static byte[] Inflate(byte[] compressed, int expectedLength) =>
+            Inflate(new ArraySegment<byte>(compressed), expectedLength);
+
+        internal static byte[] Inflate(ArraySegment<byte> compressed, int expectedLength)
         {
-            if (compressed == null) throw new ArgumentNullException(nameof(compressed));
+            if (compressed.Array == null) throw new ArgumentNullException(nameof(compressed));
             if (expectedLength < 0)
             {
                 throw new InvalidDataException("Negative expected inflate length.");
@@ -486,7 +521,7 @@ namespace PO2.Persistence.Format
 
             if (expectedLength == 0)
             {
-                if (compressed.Length != 0)
+                if (compressed.Count != 0)
                 {
                     throw new InvalidDataException("Non-empty compressed stream for zero decoded bytes.");
                 }
@@ -495,7 +530,7 @@ namespace PO2.Persistence.Format
             }
 
             byte[] result = new byte[expectedLength];
-            using (MemoryStream input = new MemoryStream(compressed, false))
+            using (MemoryStream input = new MemoryStream(compressed.Array, compressed.Offset, compressed.Count, false))
             using (DeflateStream deflate = new DeflateStream(input, CompressionMode.Decompress))
             {
                 ReadExactly(deflate, result, 0, result.Length);

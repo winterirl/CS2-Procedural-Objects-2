@@ -29,6 +29,7 @@ namespace PO2.Persistence
     internal sealed class SaveDeletionResult
     {
         internal int Deleted;
+        internal int FailureCount;
         internal long DeletedBytes;
         internal readonly List<LocalizedText> Failures = new List<LocalizedText>();
     }
@@ -46,13 +47,22 @@ namespace PO2.Persistence
             m_Store = store;
         }
 
-        internal void Refresh(GameSaveCatalogSnapshot catalog)
+        internal void Refresh(GameSaveCatalogSnapshot catalog, Action checkpoint = null, Action checkedFile = null)
         {
             Cancel();
-            Discovery = m_Store.DiscoverSaves(catalog);
+            Discovery = m_Store.DiscoverSaves(catalog, checkpoint, checkedFile);
             CatalogComplete = catalog != null && catalog.IsComplete;
             Revision++;
         }
+
+        internal void SetDiscovery(SaveDiscoveryResult discovery, bool catalogComplete)
+        {
+            Discovery = discovery;
+            CatalogComplete = catalogComplete;
+            Revision++;
+        }
+
+        internal void SetPending(SaveDeletionPlan plan) { Pending = plan; }
 
         internal void Cancel()
         {
@@ -69,7 +79,7 @@ namespace PO2.Persistence
         }
 
         // value is a comma-separated set of server-issued keys, or a local calendar date.
-        internal LocalizedText Prepare(string kind, string session, string value, ISet<string> protectedKeys)
+        internal LocalizedText Prepare(string kind, string session, string value, ISet<string> protectedKeys, Action checkpoint = null)
         {
             Cancel();
             if (Discovery == null || !Discovery.ScanSucceeded) return LocalizedText.For("PO2.SaveManager.Validation.RefreshRequired");
@@ -106,6 +116,7 @@ namespace PO2.Persistence
             var criteria = new SaveDeletionPlan(kind, lineage, cutoff, targets);
             foreach (SaveRecord save in Discovery.Saves)
             {
+                checkpoint?.Invoke();
                 if (!criteria.StillMatches(save) || (keys != null && !keys.Contains(save.FileKey))) continue;
                 if (protectedKeys.Contains(save.FileKey))
                 {
@@ -121,21 +132,23 @@ namespace PO2.Persistence
             return LocalizedText.Empty;
         }
 
-        internal SaveDeletionResult Confirm(string token, GameSaveCatalogSnapshot catalog, ISet<string> protectedKeys)
+        internal SaveDeletionResult Confirm(string token, GameSaveCatalogSnapshot catalog, ISet<string> protectedKeys, MaintenanceWork work, SnapshotAccessGate gate, long revision)
         {
             var result = new SaveDeletionResult();
             SaveDeletionPlan plan = Pending;
             // A stale token must not dismiss a newer confirmation.
             if (plan == null || !string.Equals(token, plan.Token, StringComparison.Ordinal))
             {
+                result.FailureCount++;
                 result.Failures.Add(LocalizedText.For("PO2.SaveManager.DeleteError.ConfirmationExpired"));
                 return result;
             }
 
             Cancel();
-            SaveDiscoveryResult current = m_Store.DiscoverSaves(catalog);
+            SaveDiscoveryResult current = m_Store.DiscoverSaves(catalog, work.Checkpoint, work.Progress.CheckedFile);
             if (!current.ScanSucceeded)
             {
+                result.FailureCount++;
                 result.Failures.Add(LocalizedText.For("PO2.SaveManager.DeleteError.ScanFailed"));
                 return result;
             }
@@ -144,18 +157,25 @@ namespace PO2.Persistence
             foreach (SaveRecord save in current.Saves) byKey[save.FileKey] = save;
             foreach (SaveRecord target in plan.Saves)
             {
-                LocalizedText reason;
-                if (protectedKeys.Contains(target.FileKey)) reason = LocalizedText.For("PO2.SaveManager.DeleteError.Protected");
-                else if (!byKey.TryGetValue(target.FileKey, out SaveRecord fresh)) reason = LocalizedText.For("PO2.SaveManager.DeleteError.FileUnavailable");
-                else if (!plan.StillMatches(fresh)) reason = LocalizedText.For("PO2.SaveManager.DeleteError.CriteriaChanged");
-                else if (m_Store.TryDeleteUnchanged(target, out reason))
+                work.Checkpoint();
+                using (IDisposable lease = gate.TryEnter(revision))
                 {
-                    result.Deleted++;
-                    result.DeletedBytes += target.FileBytes;
-                    continue;
+                    if (lease == null) break;
+                    LocalizedText reason;
+                    if (protectedKeys.Contains(target.FileKey)) reason = LocalizedText.For("PO2.SaveManager.DeleteError.Protected");
+                    else if (!byKey.TryGetValue(target.FileKey, out SaveRecord fresh)) reason = LocalizedText.For("PO2.SaveManager.DeleteError.FileUnavailable");
+                    else if (!plan.StillMatches(fresh)) reason = LocalizedText.For("PO2.SaveManager.DeleteError.CriteriaChanged");
+                    else if (m_Store.TryDeleteUnchanged(target, out reason))
+                    {
+                        result.Deleted++;
+                        work.Progress.DeletedFile(target.FileBytes);
+                        result.DeletedBytes += target.FileBytes;
+                        continue;
                 }
 
-                result.Failures.Add(LocalizedText.For("PO2.SaveManager.DeleteError.FileDetail", ("fileKey", target.FileKey), ("reason", reason)));
+                result.FailureCount++;
+                if (result.Failures.Count < 32) result.Failures.Add(LocalizedText.For("PO2.SaveManager.DeleteError.FileDetail", ("fileKey", target.FileKey), ("reason", reason)));
+                }
             }
 
             return result;

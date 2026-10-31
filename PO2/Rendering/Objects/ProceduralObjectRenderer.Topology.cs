@@ -262,13 +262,15 @@ namespace PO2.Rendering.Objects
             private readonly TopologyMeshUpload m_Data;
             private int m_Step, m_Vertex, m_Index, m_Submesh;
             private bool m_RecalculateTangents;
+            private readonly bool m_Loading;
             private const MeshUpdateFlags kFlags = RenderVertexStreams.kBatchFlags | MeshUpdateFlags.DontValidateIndices;
 
-            internal TopologyUpload(Mesh mesh, TopologyMeshUpload data, bool tangents = false)
+            internal TopologyUpload(Mesh mesh, TopologyMeshUpload data, bool tangents = false, bool loading = false)
             {
                 m_Mesh = mesh;
                 m_Data = data;
                 m_RecalculateTangents = tangents;
+                m_Loading = loading;
             }
 
             internal bool Poll()
@@ -289,7 +291,7 @@ namespace PO2.Rendering.Objects
 
                 if (m_Vertex < m_Data.VertexCount)
                 {
-                    int count = Math.Min(2048, m_Data.VertexCount - m_Vertex);
+                    int count = m_Loading ? m_Data.VertexCount - m_Vertex : Math.Min(2048, m_Data.VertexCount - m_Vertex);
                     var layout = m_Data.Layout;
                     RenderVertexStreams.Submit(m_Mesh, m_Data.Positions, m_Vertex, m_Vertex, count, 0, 12, RenderVertexStreams.Role.Position);
                     if (layout.Normal >= 0) RenderVertexStreams.Submit(m_Mesh, m_Data.Directions, m_Vertex, m_Vertex, count, layout.Normal, 12, RenderVertexStreams.Role.Normal);
@@ -301,7 +303,7 @@ namespace PO2.Rendering.Objects
 
                 if (m_Index < m_Data.Indices.Length)
                 {
-                    int count = Math.Min(16384, m_Data.Indices.Length - m_Index);
+                    int count = m_Loading ? m_Data.Indices.Length - m_Index : Math.Min(16384, m_Data.Indices.Length - m_Index);
                     m_Mesh.SetIndexBufferData(m_Data.Indices, m_Index, m_Index, count, kFlags);
                     m_Index += count;
                     return false;
@@ -344,7 +346,7 @@ namespace PO2.Rendering.Objects
             private readonly ProceduralObject m_Object;
             private readonly MeshPart m_Candidate;
             private TopologyRendererPreparation m_Data;
-            private readonly bool m_Append;
+            private readonly bool m_Append, m_Loading;
             private readonly int m_Index;
             private readonly RenderPart m_Old;
             private RenderPart m_Staging;
@@ -353,7 +355,7 @@ namespace PO2.Rendering.Objects
             private int m_Area, m_Properties;
             private bool m_MainStarted, m_Ready, m_Adopted, m_Committed;
 
-            internal TopologyPublication(ProceduralObjectRenderer owner, RenderInstance instance, ProceduralObject obj, int index, MeshPart candidate, TopologyRendererPreparation data, bool append = false)
+            internal TopologyPublication(ProceduralObjectRenderer owner, RenderInstance instance, ProceduralObject obj, int index, MeshPart candidate, TopologyRendererPreparation data, bool append = false, bool loading = false)
             {
                 m_Owner = owner;
                 m_Instance = instance;
@@ -362,6 +364,7 @@ namespace PO2.Rendering.Objects
                 m_Candidate = candidate;
                 m_Data = data;
                 m_Append = append;
+                m_Loading = loading;
                 m_Old = append ? null : instance.Parts[index];
                 var go = new GameObject($"Part {index}: {candidate.Name}");
                 Mesh mesh = null;
@@ -424,7 +427,7 @@ namespace PO2.Rendering.Objects
                     m_Staging.UsesSourceTangents = m_Data.RequiresTangents && sourceTangents;
                     m_Staging.HasMainRendererGeometry = m_Materials.Count > 0;
                     m_Staging.Renderer.sharedMaterials = m_Materials.ToArray();
-                    m_Upload = new TopologyUpload(m_Staging.Mesh, m_Data.Upload, m_Data.RecalculateCombinedTangents);
+                    m_Upload = new TopologyUpload(m_Staging.Mesh, m_Data.Upload, m_Data.RecalculateCombinedTangents, m_Loading);
                     m_MainStarted = true;
                     return false;
                 }
@@ -485,7 +488,7 @@ namespace PO2.Rendering.Objects
                 area.IsolatedRendererComponent = go.AddComponent<MeshRenderer>();
                 area.IsolatedRendererComponent.sharedMaterial = area.Material;
                 ApplyRendererDecalLayers(area.IsolatedRendererComponent, m_Staging.ReceivesDecals);
-                m_Upload = new TopologyUpload(area.IsolatedMesh, data.Upload, data.RecalculateTangents);
+                m_Upload = new TopologyUpload(area.IsolatedMesh, data.Upload, data.RecalculateTangents, m_Loading);
             }
 
             public void Adopt()

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using PO2.Persistence.Model;
+using PO2.Persistence.PreparedTopology;
 
 namespace PO2.Persistence.Format
 {
@@ -60,16 +62,59 @@ namespace PO2.Persistence.Format
         internal SnapshotMetadata Metadata => Header.Metadata;
         internal SnapshotMetadataStatus MetadataStatus => Header.MetadataStatus;
         internal string MetadataWarning => Header.MetadataWarning;
-        public IReadOnlyList<PersistenceObjectData> Objects { get; }
+        private PersistenceObjectData[] m_Objects;
+        private EncodedPartTopology[][] m_Prepared;
+        public IReadOnlyList<PersistenceObjectData> Objects => m_Objects ?? throw new InvalidOperationException("Snapshot objects have already been consumed.");
+        internal int ObjectCount { get; }
+
+        internal OwnedSnapshotObjects TakeObjectsForRestore(TopologyEncodingSession session = null)
+        {
+            var objects = Interlocked.Exchange(ref m_Objects, null) ?? throw new InvalidOperationException("Snapshot objects have already been consumed.");
+            var prepared = m_Prepared;
+            m_Prepared = null;
+            return new OwnedSnapshotObjects(objects, prepared, session);
+        }
         public IReadOnlyList<SnapshotObjectError> SkippedObjects { get; }
 
-        internal SnapshotReadResult(SnapshotHeaderInfo header, IReadOnlyList<PersistenceObjectData> objects, IReadOnlyList<SnapshotObjectError> skippedObjects)
+        internal SnapshotReadResult(SnapshotHeaderInfo header, IReadOnlyList<PersistenceObjectData> objects, IReadOnlyList<SnapshotObjectError> skippedObjects, EncodedPartTopology[][] prepared = null)
         {
+            m_Prepared = prepared;
             Header = header ?? throw new ArgumentNullException(nameof(header));
             SaveGuid = header.SaveGuid;
             SessionGuid = header.SessionGuid;
-            Objects = objects ?? Array.Empty<PersistenceObjectData>();
+            ObjectCount = objects?.Count ?? 0;
+            m_Objects = new PersistenceObjectData[ObjectCount];
+            for (int i = 0; i < ObjectCount; i++) m_Objects[i] = objects[i];
             SkippedObjects = skippedObjects ?? Array.Empty<SnapshotObjectError>();
+        }
+    }
+
+    internal sealed class OwnedSnapshotObjects : IDisposable
+    {
+        private readonly PersistenceObjectData[] m_Objects;
+        private readonly EncodedPartTopology[][] m_Prepared;
+        internal readonly TopologyEncodingSession Session;
+        internal EncodedPartTopology TakePrepared(int obj, int part)
+        {
+            if (m_Prepared == null) return null;
+            var result = m_Prepared[obj][part];
+            m_Prepared[obj][part] = null;
+            return result;
+        }
+        internal int Count => m_Objects.Length;
+        internal PersistenceObjectData Peek(int index) => m_Objects[index] ?? throw new InvalidOperationException("Snapshot object already consumed.");
+        internal PersistenceObjectData Take(int index)
+        {
+            var result = Peek(index);
+            m_Objects[index] = null;
+            return result;
+        }
+        internal OwnedSnapshotObjects(PersistenceObjectData[] objects, EncodedPartTopology[][] prepared = null, TopologyEncodingSession session = null)
+        { m_Objects = objects; m_Prepared = prepared; Session = session; }
+        public void Dispose()
+        {
+            Array.Clear(m_Objects, 0, m_Objects.Length);
+            if (m_Prepared != null) Array.Clear(m_Prepared, 0, m_Prepared.Length);
         }
     }
 

@@ -62,16 +62,18 @@ namespace PO2.Persistence
 
     internal sealed class SaveDiscoveryResult
     {
-        internal SaveDiscoveryResult(IReadOnlyList<SaveRecord> saves, IReadOnlyList<SaveDiscoveryError> rejectedFiles, bool scanSucceeded = true)
+        internal SaveDiscoveryResult(IReadOnlyList<SaveRecord> saves, IReadOnlyList<SaveDiscoveryError> rejectedFiles, bool scanSucceeded = true, int rejectedFileCount = -1)
         {
             Saves = saves;
             RejectedFiles = rejectedFiles;
             ScanSucceeded = scanSucceeded;
+            RejectedFileCount = rejectedFileCount < 0 ? rejectedFiles.Count : rejectedFileCount;
         }
 
         internal IReadOnlyList<SaveRecord> Saves { get; }
         internal IReadOnlyList<SaveDiscoveryError> RejectedFiles { get; }
         internal bool ScanSucceeded { get; }
+        internal int RejectedFileCount { get; }
 
         internal SaveDiscoveryResult ForRecovery(string currentFileKey, Guid sessionGuid)
         {
@@ -85,14 +87,15 @@ namespace PO2.Persistence
                 }
             }
 
-            return new SaveDiscoveryResult(candidates, RejectedFiles, ScanSucceeded);
+            return new SaveDiscoveryResult(candidates, RejectedFiles, ScanSucceeded, RejectedFileCount);
         }
     }
 
     internal sealed class GameSaveCatalogEntry
     {
-        internal GameSaveCatalogEntry(string fileKey, Guid snapshotSaveGuid, Guid sessionGuid, SnapshotMetadata metadata)
+        internal GameSaveCatalogEntry(string fileKey, Guid snapshotSaveGuid, Guid sessionGuid, SnapshotMetadata metadata, bool presenceOnly = false)
         {
+            PresenceOnly = presenceOnly;
             FileKey = fileKey;
             SnapshotSaveGuid = snapshotSaveGuid;
             SessionGuid = sessionGuid;
@@ -103,6 +106,7 @@ namespace PO2.Persistence
         internal Guid SnapshotSaveGuid { get; }
         internal Guid SessionGuid { get; }
         internal SnapshotMetadata Metadata { get; }
+        internal bool PresenceOnly { get; }
     }
 
     // Copies only values from the available game catalog. No asset references or disk index.
@@ -121,7 +125,7 @@ namespace PO2.Persistence
             {
                 if (m_Entries.TryGetValue(entry.FileKey, out GameSaveCatalogEntry previous))
                 {
-                    if (previous.SnapshotSaveGuid != entry.SnapshotSaveGuid || previous.SessionGuid != entry.SessionGuid || !Equals(previous.Metadata, entry.Metadata))
+                    if (previous.SnapshotSaveGuid != entry.SnapshotSaveGuid || previous.SessionGuid != entry.SessionGuid || previous.PresenceOnly != entry.PresenceOnly || !Equals(previous.Metadata, entry.Metadata))
                     {
                         m_ConflictingKeys.Add(entry.FileKey);
                     }
@@ -139,6 +143,8 @@ namespace PO2.Persistence
             if (m_ConflictingKeys.Contains(fileKey)) return GameSaveStatus.Unknown;
             if (m_Entries.TryGetValue(fileKey, out GameSaveCatalogEntry entry))
             {
+                if (entry.PresenceOnly)
+                    return entry.SnapshotSaveGuid == saveGuid ? GameSaveStatus.Matched : GameSaveStatus.Unknown;
                 // Names and timestamps never establish a match.
                 if (entry.SnapshotSaveGuid != saveGuid || entry.SessionGuid != sessionGuid || sessionGuid == Guid.Empty) return GameSaveStatus.Unknown;
                 metadata = entry.Metadata;

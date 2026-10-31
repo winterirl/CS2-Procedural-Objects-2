@@ -65,7 +65,8 @@ namespace PO2.Rendering.Objects
 
                 bool sourceGenerated = IsGeneratedMappingMode(sourceArea.Material.Mapping.Mode);
                 bool renderGenerated = renderArea.GeneratedMapping != null;
-                if (sourceGenerated != renderGenerated)
+                if (sourceGenerated != renderGenerated || (renderGenerated &&
+                    !renderArea.GeneratedMapping.MatchesSource(sourcePart.Mesh, sourceArea.SourceVertexAttributes, sourceArea.MappingSeed)))
                 {
                     return true;
                 }

@@ -13,14 +13,16 @@ using PO2.Core;
 using PO2.Localization;
 using PO2.Persistence.Format;
 using PO2.Persistence.Model;
+using PO2.Persistence.PreparedTopology;
 using PO2.Tools.ObjectTool;
 
 namespace PO2.Persistence
 {
-    // Writes the PO sidecar after the vanilla save commits. Loading waits for
-    // vanilla deserialization and session identity before restoring the matching sidecar.
+    // Writes the PO sidecar after the vanilla save commits.
+    // Loading waits for vanilla deserialization and session identity before restoring the matching sidecar.
     public partial class PersistenceCoordinatorSystem : GameSystemBase
     {
+        private readonly TopologyEncodingSession m_TopologyEncoding = new TopologyEncodingSession();
         private sealed class PendingSuccessfulSave
         {
             internal readonly string SaveName;
@@ -54,13 +56,11 @@ namespace PO2.Persistence
         private string m_CurrentLoadedExactFileKey = string.Empty;
         private Guid m_CurrentLoadedSessionGuid;
         private bool m_HasRecoveryContext;
-        private readonly List<SaveRecord> m_RecoveryCandidates = new List<SaveRecord>();
+        private IReadOnlyList<SaveRecord> m_RecoveryCandidates = Array.Empty<SaveRecord>();
         internal uint RecoveryCandidatesVersion { get; private set; }
 
         private LocalizedText m_RecoveryStatus = LocalizedText.Empty;
 
-        // Queue<T> is exposed twice by the game's reference set.
-        // A list with a read cursor keeps FIFO behavior without CS0433.
         private readonly List<PendingSuccessfulSave> m_DeferredSuccessfulSaves = new List<PendingSuccessfulSave>();
         private int m_DeferredSuccessfulSaveIndex;
 
@@ -85,7 +85,7 @@ namespace PO2.Persistence
             m_ObjectSystem = World.GetOrCreateSystemManaged<ProceduralObjectSystem>();
             m_ToolSystem = World.GetOrCreateSystemManaged<ProceduralObjectToolSystem>();
             m_FileStore = new SnapshotFileStore(Mod.SaveRootPath);
-            CleanupStaleSnapshotTemps();
+            InitializeMaintenance();
             m_LoadGameSystem = World.GetOrCreateSystemManaged<LoadGameSystem>();
 
             if (m_LoadGameSystem != null)
@@ -98,36 +98,19 @@ namespace PO2.Persistence
                 GameManager.instance.onGameSaveLoad += OnGameSaveLoad;
             }
 
-            Mod.log.Info($"[PO][Persistence] Persistence v2 coordinator created. " + $"Exact snapshots load/write normally; missing or rejected exact snapshots retain same-session recovery candidates from '{m_FileStore.RootPath}' for explicit recovery only.");
-        }
-
-        private void CleanupStaleSnapshotTemps()
-        {
-            try
-            {
-                TempCleanupResult cleanup = m_FileStore.CleanupStaleTemps();
-
-                if (cleanup.DeletedPaths.Count > 0)
-                {
-                    Mod.log.Info($"[PO][Persistence] Removed {cleanup.DeletedPaths.Count} stale temporary snapshot file(s) from '{m_FileStore.RootPath}'.");
-                }
-
-                for (int i = 0; i < cleanup.Failures.Count; i++)
-                {
-                    TempCleanupError failure = cleanup.Failures[i];
-                    Mod.log.Warn($"[PO][Persistence] Could not remove stale temporary snapshot '{failure.Path}': {failure.Message}");
-                }
-            }
-            catch (Exception exception)
-            {
-                // Temp cleanup is maintenance only.
-                // It must never prevent the persistence coordinator or the vanilla city from starting.
-                Mod.log.Warn($"[PO][Persistence] Stale temporary snapshot cleanup failed unexpectedly and was ignored: {exception.Message}");
-            }
+            Mod.log.Info($"[PO][Persistence] Persistence coordinator created. " + $"Exact snapshots load/write normally; missing or rejected exact snapshots retain same-session recovery candidates from '{m_FileStore.RootPath}' for explicit recovery only.");
         }
 
         protected override void OnUpdate()
         {
+            UpdateMaintenance();
+            if (m_RecoveryWaitingKey != null && !m_SnapshotGate.IsActive && !PersistenceBusy)
+            {
+                string key = m_RecoveryWaitingKey;
+                m_RecoveryWaitingKey = null;
+                RecoverCandidateNow(key);
+            }
+            if (m_SnapshotGate.IsActive) return;
             if (m_DeferredSuccessfulSaveIndex >= m_DeferredSuccessfulSaves.Count || (m_ToolSystem != null && m_ToolSystem.MeshMutationBusy))
             {
                 return;
@@ -153,6 +136,12 @@ namespace PO2.Persistence
 
         private void OnSaveGameLoaded(Context context)
         {
+            m_TopologyEncoding.Clear();
+            StopMaintenance();
+            m_MaintenanceReady = false;
+            m_MaintenanceRequest = null;
+            m_RecoveryWaitingKey = null;
+            m_ManagerVisible = false;
             ResetSaveManagerContext();
             int deferredSaveCount = m_DeferredSuccessfulSaves.Count - m_DeferredSuccessfulSaveIndex;
             if (deferredSaveCount > 0)
@@ -170,7 +159,7 @@ namespace PO2.Persistence
                 return;
             }
 
-            // This event has the exact save guid, but fires before sessionGuid has for sure been restored from the save.
+            // This event has the exact save guid but fires before sessionGuid has for sure been restored from the save.
             // Hold it until load complete.
             m_PendingLoadedSaveGuid = context.instigatorGuid;
             m_LoadedSnapshotKey = context.instigatorGuid.ToString();
@@ -182,13 +171,22 @@ namespace PO2.Persistence
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
         {
             base.OnGameLoadingComplete(purpose, mode);
-
+            StopMaintenance();
+            m_MaintenanceReady = mode.IsGame();
+            RequestAutomaticCleanup();
             if (purpose != Purpose.LoadGame)
             {
                 ClearPendingLoadIdentity();
                 return;
             }
+            // The gate lease covers worker disk access only.
+            // Cancellation was requested above, wait here so restoration stays inside game loading.
+            m_SnapshotGate.SuspendAndDrain();
+            CompleteSnapshotRestore(mode);
+        }
 
+        private void CompleteSnapshotRestore(GameMode mode)
+        {
             try
             {
                 RestoreLoadedSaveSnapshot(mode);
@@ -228,7 +226,7 @@ namespace PO2.Persistence
             {
                 Mod.log.Info($"[PO][Persistence] LOAD no exact snapshot: " + $"saveGuid={vanillaSaveGuid}, sessionGuid={runtimeSessionGuid:D}, " + $"mode={mode}, path='{load.Path}'. Starting with zero POs.");
                 ClearRuntimeObjectsAfterLoadFailure();
-                DiscoverRecoveryCandidates(vanillaSaveGuid, exactSaveFileKey, runtimeSessionGuid, "missing exact snapshot");
+                DiscoverRecoveryCandidates(vanillaSaveGuid, exactSaveFileKey, runtimeSessionGuid);
                 return;
             }
 
@@ -236,7 +234,7 @@ namespace PO2.Persistence
             {
                 Mod.log.Warn($"[PO][Persistence] LOAD rejected exact snapshot: " + $"saveGuid={vanillaSaveGuid}, sessionGuid={runtimeSessionGuid:D}, " + $"mode={mode}, path='{load.Path}', error='{load.Error}'. " + "The vanilla city remains loaded and PO2 will start empty.");
                 ClearRuntimeObjectsAfterLoadFailure();
-                DiscoverRecoveryCandidates(vanillaSaveGuid, exactSaveFileKey, runtimeSessionGuid, "rejected exact snapshot");
+                DiscoverRecoveryCandidates(vanillaSaveGuid, exactSaveFileKey, runtimeSessionGuid);
                 return;
             }
 
@@ -249,10 +247,13 @@ namespace PO2.Persistence
             int restoredCount;
             try
             {
-                restoredCount = m_ObjectSystem.RestoreSnapshot(load.Result.Objects);
+                m_TopologyEncoding.Clear();
+                restoredCount = m_ObjectSystem.RestoreSnapshot(load.Result.TakeObjectsForRestore(m_TopologyEncoding));
+                m_TopologyEncoding.CommitLoaded(m_ObjectSystem.Objects);
             }
             catch
             {
+                m_TopologyEncoding.Clear();
                 ClearRuntimeObjectsAfterLoadFailure();
                 throw;
             }
@@ -265,45 +266,34 @@ namespace PO2.Persistence
                 Mod.log.Warn($"[PO][Persistence] LOAD skipped object directoryIndex={skipped.DirectoryIndex}, " + $"persistentId={skipped.PersistentId}: {skipped.Message}");
             }
 
-            Mod.log.Info($"[PO][Persistence] LOAD PASS saveGuid={vanillaSaveGuid}, " + $"sessionGuid={runtimeSessionGuid:D}, mode={mode}, " + $"objectsDecoded={load.Result.Objects.Count}, objectsRestored={restoredCount}, " + $"objectsSkipped={load.Result.SkippedObjects.Count}, bytes={load.Bytes}, " + $"readMs={load.ReadMs:0.###}, restoreMs={restoreTimer.Elapsed.TotalMilliseconds:0.###}, " + $"path='{load.Path}'.");
+            Mod.log.Info($"[PO][Persistence] LOAD PASS saveGuid={vanillaSaveGuid}, " + $"sessionGuid={runtimeSessionGuid:D}, mode={mode}, " + $"objectsDecoded={load.Result.ObjectCount}, objectsRestored={restoredCount}, " + $"objectsSkipped={load.Result.SkippedObjects.Count}, bytes={load.Bytes}, " + $"readMs={load.ReadMs:0.###}, restoreMs={restoreTimer.Elapsed.TotalMilliseconds:0.###}, " + $"path='{load.Path}'.");
         }
 
-        private void DiscoverRecoveryCandidates(Hash128 currentLoadedSaveGuid, string currentExactFileKey, Guid currentSessionGuid, string reason)
+        private void DiscoverRecoveryCandidates(Hash128 currentLoadedSaveGuid, string currentExactFileKey, Guid currentSessionGuid)
         {
-            SaveDiscoveryResult discovery = m_FileStore.DiscoverSaves(GameSaveCatalog.Read()).ForRecovery(currentExactFileKey, currentSessionGuid);
-
-            // Keep the load identity that discovery used.
-            // Apply rechecks it later so a candidate cant outlive the city/playthrough it was found for.
             m_CurrentLoadedSaveGuid = currentLoadedSaveGuid;
             m_CurrentLoadedExactFileKey = currentExactFileKey ?? string.Empty;
             m_CurrentLoadedSessionGuid = currentSessionGuid;
             m_HasRecoveryContext = true;
-            m_RecoveryCandidates.Clear();
-            for (int i = 0; i < discovery.Saves.Count; i++)
-            {
-                m_RecoveryCandidates.Add(discovery.Saves[i]);
-            }
-
+            m_RecoveryCandidates = Array.Empty<SaveRecord>();
+            m_RecoveryPage = 0;
             NotifyRecoveryCandidatesChanged();
-
-            m_RecoveryStatus = RecoveryMessages.Discovered(m_RecoveryCandidates.Count);
-
-            Mod.log.Info($"[PO][Persistence Recovery] {reason}; candidates={discovery.Saves.Count}, " + $"rejectedFiles={discovery.RejectedFiles.Count}, sessionGuid={currentSessionGuid:D}. " + "No recovery snapshot was applied.");
-
-            for (int i = 0; i < discovery.Saves.Count; i++)
-            {
-                SaveRecord candidate = discovery.Saves[i];
-                Mod.log.Info($"[PO][Persistence Recovery] candidate[{i}] key={candidate.FileKey}, " + $"objects={candidate.ObjectCount}, bytes={candidate.FileBytes}, " + $"lastWriteUtc={candidate.LastWriteTimeUtc:O}, " + $"snapshotSaveGuid={candidate.SnapshotSaveGuid:D}.");
-            }
-
-            for (int i = 0; i < discovery.RejectedFiles.Count; i++)
-            {
-                SaveDiscoveryError rejected = discovery.RejectedFiles[i];
-                Mod.log.Warn($"[PO][Persistence Recovery] rejected '{rejected.FileKey}': {rejected.Message}");
-            }
+            QueueRecoveryDiscovery();
         }
 
         internal bool RecoverCandidate(string fileKey)
+        {
+            if (PersistenceBusy || RecoveryOperationBusy) return false;
+            StopMaintenance();
+            if (m_SnapshotGate.IsActive)
+            {
+                m_RecoveryWaitingKey = fileKey;
+                return true;
+            }
+            return RecoverCandidateNow(fileKey);
+        }
+
+        private bool RecoverCandidateNow(string fileKey)
         {
             if (PersistenceBusy || (m_ObjectSystem != null && m_ObjectSystem.HistoryBusy) || (m_ToolSystem != null && m_ToolSystem.MeshMutationBusy)) return false;
 
@@ -373,10 +363,13 @@ namespace PO2.Persistence
             int restoredCount;
             try
             {
-                restoredCount = m_ObjectSystem.RestoreSnapshot(load.Result.Objects);
+                m_TopologyEncoding.Clear();
+                restoredCount = m_ObjectSystem.RestoreSnapshot(load.Result.TakeObjectsForRestore(m_TopologyEncoding));
+                m_TopologyEncoding.CommitLoaded(m_ObjectSystem.Objects);
             }
             catch (Exception exception)
             {
+                m_TopologyEncoding.Clear();
                 restoreTimer.Stop();
                 m_RecoveryStatus = RecoveryMessages.ReconstructionFailed;
                 Mod.log.Error($"[PO][Persistence Recovery] APPLY reconstruction failed sourceKey={candidate.FileKey}, " + $"targetKey={m_CurrentLoadedExactFileKey}: {exception}");
@@ -398,9 +391,9 @@ namespace PO2.Persistence
             SaveCatalogVersion++;
             string targetKey = m_CurrentLoadedExactFileKey;
             Hash128 targetSaveGuid = m_CurrentLoadedSaveGuid;
-            m_RecoveryStatus = RecoveryMessages.Restored(sourceKey, load.Result.Objects.Count, load.Result.SkippedObjects.Count, restoredCount);
+            m_RecoveryStatus = RecoveryMessages.Restored(sourceKey, load.Result.ObjectCount, load.Result.SkippedObjects.Count, restoredCount);
 
-            Mod.log.Info($"[PO][Persistence Recovery] APPLY PASS sourceKey={sourceKey}, " + $"sourceSaveGuid={candidate.SnapshotSaveGuid:D}, targetKey={targetKey}, " + $"targetSaveGuid={targetSaveGuid}, sessionGuid={m_CurrentLoadedSessionGuid:D}, " + $"objectsDecoded={load.Result.Objects.Count}, objectsRestored={restoredCount}, " + $"objectsSkipped={load.Result.SkippedObjects.Count}, bytes={load.Bytes}, " + $"readMs={load.ReadMs:0.###}, restoreMs={restoreTimer.Elapsed.TotalMilliseconds:0.###}. " + "No sidecar was copied or renamed; the next successful vanilla save will write the current exact snapshot.");
+            Mod.log.Info($"[PO][Persistence Recovery] APPLY PASS sourceKey={sourceKey}, " + $"sourceSaveGuid={candidate.SnapshotSaveGuid:D}, targetKey={targetKey}, " + $"targetSaveGuid={targetSaveGuid}, sessionGuid={m_CurrentLoadedSessionGuid:D}, " + $"objectsDecoded={load.Result.ObjectCount}, objectsRestored={restoredCount}, " + $"objectsSkipped={load.Result.SkippedObjects.Count}, bytes={load.Bytes}, " + $"readMs={load.ReadMs:0.###}, restoreMs={restoreTimer.Elapsed.TotalMilliseconds:0.###}. " + "No sidecar was copied or renamed; the next successful vanilla save will write the current exact snapshot.");
 
             ClearRecoveryCandidatesOnly();
             RecoveryResultPending = true;
@@ -409,44 +402,30 @@ namespace PO2.Persistence
 
         private void RefreshRecoveryCandidatesAfterApplyFailure()
         {
-            if (!m_HasRecoveryContext)
-            {
-                return;
-            }
-
-            SaveDiscoveryResult discovery = m_FileStore.DiscoverSaves(GameSaveCatalog.Read()).ForRecovery(m_CurrentLoadedExactFileKey, m_CurrentLoadedSessionGuid);
-
-            m_RecoveryCandidates.Clear();
-            for (int i = 0; i < discovery.Saves.Count; i++)
-            {
-                m_RecoveryCandidates.Add(discovery.Saves[i]);
-            }
-
-            NotifyRecoveryCandidatesChanged();
-
-            Mod.log.Info($"[PO][Persistence Recovery] candidate refresh: candidates={discovery.Saves.Count}, " + $"rejectedFiles={discovery.RejectedFiles.Count}, sessionGuid={m_CurrentLoadedSessionGuid:D}.");
-            for (int i = 0; i < discovery.RejectedFiles.Count; i++)
-            {
-                SaveDiscoveryError rejected = discovery.RejectedFiles[i];
-                Mod.log.Warn($"[PO][Persistence Recovery] refresh rejected '{rejected.FileKey}': {rejected.Message}");
-            }
+            if (!m_HasRecoveryContext) return;
+            QueueRecoveryDiscovery();
         }
 
         private void ClearRecoveryState()
         {
+            m_RecoveryDiscoveryPending = false;
+            m_RecoveryWaitingKey = null;
+            m_RecoveryPage = 0;
+            if (m_MaintenanceRequest?.Kind == MaintenanceKind.Recovery) m_MaintenanceRequest = null;
             RecoveryResultPending = false;
             m_CurrentLoadedSaveGuid = default;
             m_CurrentLoadedExactFileKey = string.Empty;
             m_CurrentLoadedSessionGuid = Guid.Empty;
             m_HasRecoveryContext = false;
-            m_RecoveryCandidates.Clear();
+            m_RecoveryCandidates = Array.Empty<SaveRecord>();
             NotifyRecoveryCandidatesChanged();
             m_RecoveryStatus = LocalizedText.Empty;
         }
 
         private void ClearRecoveryCandidatesOnly()
         {
-            m_RecoveryCandidates.Clear();
+            m_RecoveryPage = 0;
+            m_RecoveryCandidates = Array.Empty<SaveRecord>();
             NotifyRecoveryCandidatesChanged();
         }
 
@@ -494,6 +473,7 @@ namespace PO2.Persistence
             // The start event is too early ~ writing now could leave a PO2 sidecar for a vanilla save that ultimately failed.
             if (start)
             {
+                StopMaintenance();
                 m_SaveManager?.Cancel();
                 SaveCatalogVersion++;
                 return;
@@ -519,6 +499,7 @@ namespace PO2.Persistence
 
         private void WriteSuccessfulSaveSnapshot(string saveName)
         {
+            StopMaintenance();
             GameManager gameManager = GameManager.instance;
             SaveGameMetadata metadata = gameManager?.settings?.userState?.lastSaveGameMetadata;
             if (metadata == null)
@@ -552,10 +533,10 @@ namespace PO2.Persistence
 
             var pending = new PendingSuccessfulSave(capturedSaveName, vanillaSaveGuid, persistedSessionGuid, runtimeSessionGuid, snapshotMetadata);
 
-            if (m_ToolSystem != null && m_ToolSystem.MeshMutationBusy)
+            if (m_SnapshotGate.IsActive || (m_ToolSystem != null && m_ToolSystem.MeshMutationBusy))
             {
                 m_DeferredSuccessfulSaves.Add(pending);
-                Mod.log.Info($"[PO][Persistence] Deferred snapshot for vanilla " + $"save '{saveName}' until the active PO mesh operation " + "finishes.");
+                Mod.log.Info($"[PO][Persistence] Deferred snapshot for vanilla " + $"save '{saveName}' until active PO work " + "finishes.");
                 return;
             }
 
@@ -565,12 +546,24 @@ namespace PO2.Persistence
         private void WriteSuccessfulSaveSnapshot(PendingSuccessfulSave pending)
         {
             Stopwatch captureTimer = Stopwatch.StartNew();
-            List<PersistenceObjectData> objects = CaptureObjects();
+            CitySaveCapture capture = CaptureObjects();
             captureTimer.Stop();
 
-            SnapshotWriteResult write = m_FileStore.WriteTransactional(pending.ExactSaveFileKey, pending.SnapshotSaveGuid, pending.PersistedSessionGuid, pending.Metadata, objects, new SnapshotEncodingOptions(Mod.Settings?.SaveCompression ?? SaveCompression.Compact));
+            SnapshotWriteResult write;
+            try
+            {
+                write = m_FileStore.WriteTransactional(pending.ExactSaveFileKey, pending.SnapshotSaveGuid, pending.PersistedSessionGuid, pending.Metadata, capture.Objects, new SnapshotEncodingOptions(Mod.Settings?.SaveCompression ?? SaveCompression.Compact), capture);
+                m_TopologyEncoding.Promote(capture);
+            }
+            catch
+            {
+                // A failed proof must not keep handing out the same encoded record.
+                m_TopologyEncoding.Clear();
+                throw;
+            }
 
             m_RecoveredSnapshotKey = string.Empty;
+            RequestAutomaticCleanup();
             SaveCatalogVersion++;
             if (m_HasRecoveryContext)
             {
@@ -579,10 +572,10 @@ namespace PO2.Persistence
 
             SnapshotCityDate? cityDate = pending.Metadata.CityDate;
             string cityDateRaw = cityDate.HasValue ? $"{cityDate.Value.Year},{cityDate.Value.Month},{cityDate.Value.Hour},{cityDate.Value.Minute}" : "unknown";
-            Mod.log.Info($"[PO][Persistence] WRITE PASS name='{pending.SaveName}', " + $"container={SnapshotFormat.kContainerVersion}, " + $"city='{pending.Metadata.CityName}', map='{pending.Metadata.MapName}', " + $"savedAtUtc={pending.Metadata.SavedAtUtc?.ToString("O") ?? "unknown"}, cityDateRaw=({cityDateRaw}), " + $"saveGuid={pending.VanillaSaveGuid}, " + $"sessionGuid={pending.PersistedSessionGuid:D}, " + $"runtimeSessionGuid={pending.RuntimeSessionGuid:D}, " + $"sessionMatch={pending.PersistedSessionGuid == pending.RuntimeSessionGuid}, " + $"autoSave={pending.AutoSave}, objects={write.ObjectCount}, bytes={write.Bytes}, " + $"captureMs={captureTimer.Elapsed.TotalMilliseconds:0.###}, " + $"encodeMs={write.EncodeMs:0.###}, writeMs={write.WriteMs:0.###}, " + $"compression={write.Compression}, parts={write.EncodingMetrics.PartCount}, " + $"partWorkers={write.EncodingMetrics.PeakWorkers}, parallelBatches={write.EncodingMetrics.ParallelBatches}, " + $"compressionCalls={write.EncodingMetrics.CompressionCalls}, compressionInputBytes={write.EncodingMetrics.CompressionInputBytes}, " + $"compressionWorkMs={write.EncodingMetrics.CompressionMs:0.###}, partWorkMs={write.EncodingMetrics.PartWorkMs:0.###}, " + $"diskVerifyMs={write.DiskVerifyMs:0.###}, " + $"finalizeMs={write.FinalizeMs:0.###}, totalWriteMs={write.TotalMs:0.###}, " + $"path='{write.FinalPath}'.");
+            Mod.log.Info($"[PO][Persistence] WRITE PASS name='{pending.SaveName}', " + $"container={write.ContainerVersion}, " + $"city='{pending.Metadata.CityName}', map='{pending.Metadata.MapName}', " + $"savedAtUtc={pending.Metadata.SavedAtUtc?.ToString("O") ?? "unknown"}, cityDateRaw=({cityDateRaw}), " + $"saveGuid={pending.VanillaSaveGuid}, " + $"sessionGuid={pending.PersistedSessionGuid:D}, " + $"runtimeSessionGuid={pending.RuntimeSessionGuid:D}, " + $"sessionMatch={pending.PersistedSessionGuid == pending.RuntimeSessionGuid}, " + $"autoSave={pending.AutoSave}, objects={write.ObjectCount}, bytes={write.Bytes}, " + $"captureMs={captureTimer.Elapsed.TotalMilliseconds:0.###}, " + $"encodeWriteMs={write.EncodeWriteMs:0.###}, " + $"compression={write.Compression}, parts={write.EncodingMetrics.PartCount}, " + $"encodingWorkers={write.EncodingMetrics.PeakWorkers}, " + $"compressionCalls={write.EncodingMetrics.CompressionCalls}, compressionInputBytes={write.EncodingMetrics.CompressionInputBytes}, " + $"compressionWorkMs={write.EncodingMetrics.CompressionMs:0.###}, partWorkMs={write.EncodingMetrics.PartWorkMs:0.###}, " + $"diskVerifyMs={write.DiskVerifyMs:0.###}, " + $"finalizeMs={write.FinalizeMs:0.###}, totalWriteMs={write.TotalMs:0.###}, " + $"path='{write.FinalPath}'.");
         }
 
-        private List<PersistenceObjectData> CaptureObjects()
+        private CitySaveCapture CaptureObjects()
         {
             if (m_ObjectSystem == null)
             {
@@ -594,18 +587,14 @@ namespace PO2.Persistence
             List<ProceduralObject> liveObjects = new List<ProceduralObject>(m_ObjectSystem.Objects);
             liveObjects.Sort((left, right) => left.Id.CompareTo(right.Id));
 
-            List<PersistenceObjectData> captured = new List<PersistenceObjectData>(liveObjects.Count);
-            for (int i = 0; i < liveObjects.Count; i++)
-            {
-                captured.Add(PersistenceObjectData.Capture(liveObjects[i]));
-            }
-
-            return captured;
+            return new CitySaveCapture(liveObjects, m_TopologyEncoding);
         }
 
         [Preserve]
         protected override void OnDestroy()
         {
+            m_TopologyEncoding.Clear();
+            DisposeMaintenance();
             if (m_LoadGameSystem != null)
             {
                 m_LoadGameSystem.onOnSaveGameLoaded -= OnSaveGameLoaded;

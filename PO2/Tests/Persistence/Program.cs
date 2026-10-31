@@ -203,7 +203,7 @@ internal static partial class PersistenceTests {
         // Call the actual publication gate, not a parallel validation implementation.
         var method = typeof(SnapshotFileStore).GetMethod("ValidateSnapshotStream", BindingFlags.NonPublic | BindingFlags.Static);
         using (var stream = new MemoryStream(bytes)) {
-            Throws<InvalidDataException>(() => method.Invoke(null, new object[] { stream, Save, Session, 1, metadata, "test" }), message);
+            Throws<InvalidDataException>(() => method.Invoke(null, new object[] { stream, Save, Session, new[] { Objects()[0].PersistentId }, metadata, "test" }), message);
         }
     }
 

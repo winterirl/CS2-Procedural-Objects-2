@@ -479,25 +479,31 @@ namespace PO2.Tools.MeshEdit
 
             JobHandle finalRenderHandle = gizmoRenderHandle;
 
-            if (shouldDrawLegacyMarkers)
+            try
             {
-                JobHandle markerDependencies = JobHandle.CombineDependencies(gizmoRenderHandle, GetActiveReadHandle());
-                JobHandle markerRenderHandle = markerJob.Schedule(markerDependencies);
+                if (shouldDrawLegacyMarkers)
+                {
+                    JobHandle markerDependencies = JobHandle.CombineDependencies(gizmoRenderHandle, GetActiveReadHandle());
+                    finalRenderHandle = markerJob.Schedule(markerDependencies);
 
-                SetActiveReadHandle(markerRenderHandle);
-                finalRenderHandle = markerRenderHandle;
-            }
-            else
+                    SetActiveReadHandle(finalRenderHandle);
+                } else
+                {
+                    // The primary GPU backend draws markers outside GizmoBatcher,
+                    // so no fallback marker job reads this buffer on this frame.
+                    SetActiveReadHandle(Dependency);
+                }
+
+                SetActiveLoopCutPreviewReadHandle(gizmoRenderHandle);
+                SetActiveStructuralEdgeReadHandle(gizmoRenderHandle);
+                m_GizmosSystem.AddGizmosBatcherWriter(finalRenderHandle);
+                Dependency = finalRenderHandle;
+            } catch
             {
-                // The primary GPU backend draws markers outside GizmoBatcher,
-                // so no fallback marker job reads this buffer on this frame.
-                SetActiveReadHandle(Dependency);
+                // Finish any scheduled readers before their buffers can be reused.
+                finalRenderHandle.Complete();
+                throw;
             }
-
-            SetActiveLoopCutPreviewReadHandle(gizmoRenderHandle);
-            SetActiveStructuralEdgeReadHandle(gizmoRenderHandle);
-            m_GizmosSystem.AddGizmosBatcherWriter(finalRenderHandle);
-            Dependency = finalRenderHandle;
         }
 
         private void SyncInactiveBuffer(VertexFrameData[] frameData, int frameDataCount)

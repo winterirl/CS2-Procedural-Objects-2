@@ -2,23 +2,24 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using PO2.Persistence.Model;
+using PO2.Persistence.PreparedTopology;
 
 namespace PO2.Persistence.Format
 {
-    // Container v2 writer. Object block encoding is shared with legacy snapshots.
+    // Container v2/v3 writer. Object block encoding is shared with legacy snapshots.
     // The writer receives save identity explicitly and has no GameManager or filesystem lifecycle logic.
     internal static class SnapshotWriter
     {
-        internal static byte[] Write(Guid exactSaveGuid, Guid sessionGuid, SnapshotMetadata metadata, IReadOnlyList<PersistenceObjectData> objects, SnapshotEncodingOptions options = null, EncodingMetrics metrics = null)
+        internal static byte[] Write(Guid exactSaveGuid, Guid sessionGuid, SnapshotMetadata metadata, IReadOnlyList<PersistenceObjectData> objects, SnapshotEncodingOptions options = null, EncodingMetrics metrics = null, CitySaveCapture prepared = null)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                Write(stream, exactSaveGuid, sessionGuid, metadata, objects, options, metrics);
+                Write(stream, exactSaveGuid, sessionGuid, metadata, objects, options, metrics, prepared);
                 return stream.ToArray();
             }
         }
 
-        internal static void Write(Stream stream, Guid exactSaveGuid, Guid sessionGuid, SnapshotMetadata metadata, IReadOnlyList<PersistenceObjectData> objects, SnapshotEncodingOptions options = null, EncodingMetrics metrics = null)
+        internal static void Write(Stream stream, Guid exactSaveGuid, Guid sessionGuid, SnapshotMetadata metadata, IReadOnlyList<PersistenceObjectData> objects, SnapshotEncodingOptions options = null, EncodingMetrics metrics = null, CitySaveCapture prepared = null)
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
             if (objects == null) throw new ArgumentNullException(nameof(objects));
@@ -27,6 +28,7 @@ namespace PO2.Persistence.Format
                 throw new ArgumentException("PO2 snapshot output stream must be writable and seekable.", nameof(stream));
             }
 
+            prepared?.CheckObjects(objects);
             SnapshotValidation.ValidateCount(objects.Count, SnapshotFormat.kMaxObjectsPerSnapshot, "Object");
 
             // Persistent IDs are also directory keys.
@@ -51,6 +53,16 @@ namespace PO2.Persistence.Format
                 }
             }
 
+            var footprints = new long[objects.Count];
+            long total = 0;
+            for (int i = 0; i < objects.Count; i++)
+            {
+                footprints[i] = SnapshotObjectMetrics.ComputeDecodedFootprint(objects[i], SnapshotFormat.kObjectSchemaVersion);
+                total = checked(total + footprints[i]);
+                if (total > SnapshotFormat.kMaxDecodedSnapshotBytes)
+                    throw new InvalidDataException("Decoded snapshot footprint exceeds safety ceiling.");
+            }
+
             byte[] metadataBytes = SnapshotMetadataCodec.Write(metadata);
             long directoryLength = checked((long)objects.Count * SnapshotFormat.kDirectoryEntrySize);
             long directoryOffset = checked(SnapshotFormat.kSnapshotHeaderSize + metadataBytes.Length);
@@ -63,41 +75,16 @@ namespace PO2.Persistence.Format
             WriteZeros(stream, blockStart);
             stream.Position = blockStart;
 
-            SnapshotDirectoryEntry[] entries = new SnapshotDirectoryEntry[objects.Count];
-            long decodedSnapshotBytes = 0;
+            SnapshotDirectoryEntry[] entries = SnapshotEncodingPipeline.Write(stream, objects, footprints, options, metrics);
 
-            for (int i = 0; i < objects.Count; i++)
-            {
-                PersistenceObjectData obj = objects[i];
-                byte[] block = ObjectBlockWriter.Write(obj, options, metrics);
-                long decodedLength = SnapshotObjectMetrics.ComputeDecodedFootprint(obj, SnapshotFormat.kObjectSchemaVersion);
-                decodedSnapshotBytes = checked(decodedSnapshotBytes + decodedLength);
-                if (decodedSnapshotBytes > SnapshotFormat.kMaxDecodedSnapshotBytes)
-                {
-                    throw new InvalidDataException("Decoded snapshot footprint exceeds safety ceiling.");
-                }
-
-                long offset = stream.Position;
-                stream.Write(block, 0, block.Length);
-                entries[i] = new SnapshotDirectoryEntry
-                {
-                    PersistentId = obj.PersistentId,
-                    ObjectSchemaVersion = SnapshotFormat.kObjectSchemaVersion,
-                    Flags = 0,
-                    BlockOffset = offset,
-                    StoredLength = block.LongLength,
-                    DecodedLength = decodedLength,
-                    BlockChecksum = Crc32.Compute(block),
-                    Reserved = 0,
-                };
-            }
+            if (prepared != null) PreparedTopologyExtension.Write(stream, prepared, options?.MaxWorkers ?? 1);
 
             // The block offsets are known now, so fill the reserved front matter
             // without moving or rewriting the object data.
             long finalLength = stream.Position;
             byte[] directory = BuildDirectory(entries);
             uint directoryChecksum = Crc32.Compute(directory);
-            byte[] header = BuildHeader(exactSaveGuid, sessionGuid, objects.Count, directoryOffset, directoryLength, directoryChecksum);
+            byte[] header = BuildHeader(exactSaveGuid, sessionGuid, objects.Count, directoryOffset, directoryLength, directoryChecksum, prepared != null ? SnapshotFormat.kPreparedContainerVersion : SnapshotFormat.kContainerVersion);
 
             stream.Position = 0;
             stream.Write(header, 0, header.Length);
@@ -109,7 +96,8 @@ namespace PO2.Persistence.Format
 
         private static byte[] BuildDirectory(SnapshotDirectoryEntry[] entries)
         {
-            using (MemoryStream directory = new MemoryStream(checked(entries.Length * SnapshotFormat.kDirectoryEntrySize)))
+            var bytes = new byte[checked(entries.Length * SnapshotFormat.kDirectoryEntrySize)];
+            using (var directory = new MemoryStream(bytes, writable: true))
             {
                 for (int i = 0; i < entries.Length; i++)
                 {
@@ -124,9 +112,7 @@ namespace PO2.Persistence.Format
                     SnapshotBinary.WriteUInt32(directory, entry.Reserved);
                 }
 
-                byte[] bytes = directory.ToArray();
-                int expected = checked(entries.Length * SnapshotFormat.kDirectoryEntrySize);
-                if (bytes.Length != expected)
+                if (directory.Position != bytes.Length)
                 {
                     throw new InvalidDataException("PO2 snapshot directory size mismatch while writing.");
                 }
@@ -135,12 +121,13 @@ namespace PO2.Persistence.Format
             }
         }
 
-        private static byte[] BuildHeader(Guid exactSaveGuid, Guid sessionGuid, int objectCount, long directoryOffset, long directoryLength, uint directoryChecksum)
+        private static byte[] BuildHeader(Guid exactSaveGuid, Guid sessionGuid, int objectCount, long directoryOffset, long directoryLength, uint directoryChecksum, ushort containerVersion)
         {
-            using (MemoryStream header = new MemoryStream(SnapshotFormat.kSnapshotHeaderSize))
+            var bytes = new byte[SnapshotFormat.kSnapshotHeaderSize];
+            using (var header = new MemoryStream(bytes, writable: true))
             {
                 header.Write(SnapshotFormat.s_Magic, 0, SnapshotFormat.s_Magic.Length);
-                SnapshotBinary.WriteUInt16(header, SnapshotFormat.kContainerVersion);
+                SnapshotBinary.WriteUInt16(header, containerVersion);
                 SnapshotBinary.WriteUInt16(header, SnapshotFormat.kSnapshotSchemaVersion);
                 SnapshotBinary.WriteUInt16(header, SnapshotFormat.kSnapshotHeaderSize);
                 SnapshotBinary.WriteUInt16(header, 0);
@@ -153,17 +140,15 @@ namespace PO2.Persistence.Format
                 SnapshotBinary.WriteUInt64(header, checked((ulong)directoryLength));
                 SnapshotBinary.WriteUInt32(header, directoryChecksum);
 
-                byte[] withoutChecksum = header.ToArray();
-                if (withoutChecksum.Length != SnapshotFormat.kSnapshotHeaderSize - 4)
+                if (header.Position != SnapshotFormat.kSnapshotHeaderSize - 4)
                 {
                     throw new InvalidDataException("PO2 snapshot header pre-checksum size mismatch.");
                 }
 
-                uint headerChecksum = Crc32.Compute(withoutChecksum);
+                uint headerChecksum = Crc32.Compute(bytes, 0, SnapshotFormat.kSnapshotHeaderSize - 4);
                 SnapshotBinary.WriteUInt32(header, headerChecksum);
 
-                byte[] bytes = header.ToArray();
-                if (bytes.Length != SnapshotFormat.kSnapshotHeaderSize)
+                if (header.Position != SnapshotFormat.kSnapshotHeaderSize)
                 {
                     throw new InvalidDataException("PO2 snapshot header size mismatch while writing.");
                 }

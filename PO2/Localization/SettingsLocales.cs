@@ -44,6 +44,10 @@ namespace PO2.Localization
             entries[setting.GetOptionGroupLocaleID(Setting.kSavingGroup)] = entries["PO2.Settings.Group.Saving"];
             entries[setting.GetOptionLabelLocaleID(nameof(Setting.SaveCompression))] = entries["PO2.Settings.SaveCompression.Label"];
             entries[setting.GetOptionDescLocaleID(nameof(Setting.SaveCompression))] = entries["PO2.Settings.SaveCompression.Description"];
+            entries[setting.GetOptionLabelLocaleID(nameof(Setting.CleanupOrphanedAutosaves))] = entries["PO2.Settings.AutosaveCleanup.Label"];
+            entries[setting.GetOptionDescLocaleID(nameof(Setting.CleanupOrphanedAutosaves))] = entries["PO2.Settings.AutosaveCleanup.Description"];
+            entries[setting.GetOptionLabelLocaleID(nameof(Setting.RetainedOrphanedAutosaves))] = entries["PO2.Settings.AutosaveRetention.Label"];
+            entries[setting.GetOptionDescLocaleID(nameof(Setting.RetainedOrphanedAutosaves))] = entries["PO2.Settings.AutosaveRetention.Description"];
             entries[setting.GetEnumValueLocaleID(SaveCompression.Compact)] = entries["PO2.Settings.SaveCompression.Choice.Compact"];
             entries[setting.GetEnumValueLocaleID(SaveCompression.Fast)] = entries["PO2.Settings.SaveCompression.Choice.Fast"];
             entries[setting.GetOptionGroupLocaleID(Setting.kHistoryGroup)] = entries["PO2.Settings.Group.History"];

@@ -10,16 +10,16 @@ using PO2.Geometry;
 
 namespace PO2.Geometry.Topology
 {
-    // Conversion runs in Task.Run(), where Unity jobs cannot be scheduled.
+    // Conversion and restore run in Task.Run(), where Unity jobs cannot be scheduled.
     // Cached Burst function pointers keep the native build on that worker.
     [BurstCompile]
-    internal static unsafe class NativeMeshTopologyBuilder
+    internal static unsafe partial class NativeMeshTopologyBuilder
     {
         private const int kSortStackCapacity = 128;
         private const int kCompatibilityValidationVertexLimit = 4096;
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct EdgeTriangleRecord
+        internal struct EdgeTriangleRecord
         {
             public int VertexA;
             public int VertexB;
@@ -55,6 +55,8 @@ namespace PO2.Geometry.Topology
             public int* VertexTriangleOffsets;
             public int* VertexTriangles;
             public EdgeTriangleRecord* EdgeTriangles;
+            public EdgeTriangleRecord* RestoreSortRecords;
+            public int* RestoreSortBuckets;
             public int* AdjacentVertexOffsets;
             public int* AdjacentVertices;
             public int* GroupCursors;
@@ -146,6 +148,105 @@ namespace PO2.Geometry.Topology
             }
 
             return true;
+        }
+
+        private static TopologyKernel s_RestoreRecords, s_RestoreSort, s_RestorePack;
+
+        // Restore never runs position welding. Pin only the immutable inputs for
+        // the synchronous kernels; every worker owns its adjacency scratch.
+        internal static MeshTopology Restore(MeshData mesh, int[] mapping, int logicalCount, bool takeOwnership)
+        {
+            if (mesh == null) throw new ArgumentNullException(nameof(mesh));
+            if (mapping == null) throw new ArgumentNullException(nameof(mapping));
+            if (mapping.Length != mesh.Vertices.Length || logicalCount < 0 || logicalCount > mapping.Length || (mapping.Length > 0 && logicalCount == 0))
+                throw new InvalidOperationException("Invalid persisted render-to-logical mapping size.");
+            var represented = new bool[logicalCount];
+            foreach (int id in mapping)
+            {
+                if (id < 0 || id >= logicalCount) throw new InvalidOperationException("Invalid persisted logical vertex ID.");
+                represented[id] = true;
+            }
+            foreach (bool present in represented)
+                if (!present) throw new InvalidOperationException("Persisted logical vertex has no render membership.");
+            int[] triangles = mesh.Triangles;
+            if (triangles.Length % 3 != 0) throw new InvalidOperationException("Invalid triangle index buffer.");
+            foreach (int index in triangles)
+                if (index < 0 || index >= mapping.Length) throw new InvalidOperationException("Invalid triangle render index.");
+
+            TopologyKernel records, sort, pack;
+            lock (s_KernelLock)
+            {
+                if (s_RestoreRecords == null)
+                {
+                    // The managed fallback uses exactly the same packing algorithm.
+                    s_RestoreRecords = AdjacencyRecordsKernel;
+                    s_RestoreSort = RestoreEdgeSortKernel;
+                    s_RestorePack = AdjacencyPackKernel;
+                    if (BurstCompiler.IsEnabled)
+                    {
+                        try
+                        {
+                            var r = BurstCompiler.CompileFunctionPointer<TopologyKernel>(AdjacencyRecordsKernel).Invoke;
+                            var s = BurstCompiler.CompileFunctionPointer<TopologyKernel>(RestoreEdgeSortKernel).Invoke;
+                            var p = BurstCompiler.CompileFunctionPointer<TopologyKernel>(AdjacencyPackKernel).Invoke;
+                            s_RestoreRecords = r;
+                            s_RestoreSort = s;
+                            s_RestorePack = p;
+                        }
+                        catch (Exception)
+                        {
+                            // Compilation is optional; malformed geometry is not.
+                        }
+                    }
+                }
+                records = s_RestoreRecords;
+                sort = s_RestoreSort;
+                pack = s_RestorePack;
+            }
+
+            int[] owned = takeOwnership ? mapping : (int[])mapping.Clone();
+            using (var buffers = new NativeBuffers(logicalCount, triangles.Length))
+            fixed (int* mapped = owned)
+            fixed (int* indices = triangles)
+            {
+                var context = new NativeTopologyContext
+                {
+                    PositionCount = mapping.Length, IndexCount = triangles.Length,
+                    Triangles = indices, RenderToLogical = mapped, LogicalVertexCount = logicalCount,
+                    VertexTriangleOffsets = (int*)NativeArrayUnsafeUtility.GetUnsafePtr(buffers.VertexTriangleOffsets),
+                    VertexTriangles = (int*)NativeArrayUnsafeUtility.GetUnsafePtr(buffers.VertexTriangles),
+                    EdgeTriangles = (EdgeTriangleRecord*)NativeArrayUnsafeUtility.GetUnsafePtr(buffers.EdgeTriangles),
+                    AdjacentVertexOffsets = (int*)NativeArrayUnsafeUtility.GetUnsafePtr(buffers.AdjacentVertexOffsets),
+                    AdjacentVertices = (int*)NativeArrayUnsafeUtility.GetUnsafePtr(buffers.AdjacentVertices),
+                    GroupCursors = (int*)NativeArrayUnsafeUtility.GetUnsafePtr(buffers.GroupCursors),
+                    SortStack = (SortRange*)NativeArrayUnsafeUtility.GetUnsafePtr(buffers.SortStack),
+                    SortStackCapacity = kSortStackCapacity
+                };
+                records(ref context);
+                ThrowIfKernelFailed(context, "restore records");
+                using (var scratch = UseRestoreRadix(ref context)
+                    ? new RestoreSortScratch(context.EdgeTriangleCount) : null)
+                {
+                    try
+                    {
+                        if (scratch != null)
+                        {
+                            context.RestoreSortRecords = (EdgeTriangleRecord*)NativeArrayUnsafeUtility.GetUnsafePtr(scratch.Records);
+                            context.RestoreSortBuckets = (int*)NativeArrayUnsafeUtility.GetUnsafePtr(scratch.Buckets);
+                        }
+                        sort(ref context);
+                        ThrowIfKernelFailed(context, "restore sort");
+                    }
+                    finally
+                    {
+                        context.RestoreSortRecords = null;
+                        context.RestoreSortBuckets = null;
+                    }
+                }
+                pack(ref context);
+                ThrowIfKernelFailed(context, "restore packing");
+                return MaterializeTopology(buffers, context, owned);
+            }
         }
 
         private static void ValidateEquivalent(MeshTopology actual, MeshTopology expected)
@@ -273,6 +374,9 @@ namespace PO2.Geometry.Topology
                 case 4:
                     detail = "the packed adjacency buffers were inconsistent";
                     break;
+                case 5:
+                    detail = "the restore sort scratch was missing";
+                    break;
                 default:
                     detail = $"native error {context.ErrorCode}";
                     break;
@@ -281,7 +385,7 @@ namespace PO2.Geometry.Topology
             throw new InvalidOperationException($"Burst topology {stage} failed because {detail}.");
         }
 
-        private static MeshTopology MaterializeTopology(NativeBuffers buffers, NativeTopologyContext context)
+        private static MeshTopology MaterializeTopology(NativeBuffers buffers, NativeTopologyContext context, int[] ownedMapping = null)
         {
             int logicalVertexCount = context.LogicalVertexCount;
             int renderVertexCount = context.PositionCount;
@@ -298,7 +402,7 @@ namespace PO2.Geometry.Topology
 
             ValidatePackedOffsets(buffers.VertexTriangleOffsets, logicalVertexCount, context.VertexTriangleCount, "vertex/triangle");
             ValidatePackedOffsets(buffers.AdjacentVertexOffsets, logicalVertexCount, context.AdjacencyCount, "vertex adjacency");
-            int[] renderToLogical = CopyNativeInts(buffers.RenderToLogical, renderVertexCount);
+            int[] renderToLogical = ownedMapping ?? CopyNativeInts(buffers.RenderToLogical, renderVertexCount);
             int[] renderCounts = new int[logicalVertexCount];
             for (int renderIndex = 0; renderIndex < renderVertexCount; renderIndex++)
             {
@@ -630,8 +734,12 @@ namespace PO2.Geometry.Topology
                 return;
             }
 
-            edgeTriangleCount = CompactEdgeTriangles(context.EdgeTriangles, edgeTriangleCount);
+            FinishEdgeSort(ref context);
+        }
 
+        private static void FinishEdgeSort(ref NativeTopologyContext context)
+        {
+            int edgeTriangleCount = CompactEdgeTriangles(context.EdgeTriangles, context.EdgeTriangleCount);
             int edgeCount = 0;
             int previousA = -1;
             int previousB = -1;
@@ -970,6 +1078,25 @@ namespace PO2.Geometry.Topology
             public NativeArray<int> AdjacentVertices;
             public NativeArray<int> GroupCursors;
             public NativeArray<SortRange> SortStack;
+
+            public NativeBuffers(int logicalCount, int indexCount)
+            {
+                try
+                {
+                    VertexTriangleOffsets = CreateArray<int>(checked(logicalCount + 1), NativeArrayOptions.ClearMemory);
+                    VertexTriangles = CreateArray<int>(indexCount);
+                    EdgeTriangles = CreateArray<EdgeTriangleRecord>(indexCount);
+                    AdjacentVertexOffsets = CreateArray<int>(checked(logicalCount + 1), NativeArrayOptions.ClearMemory);
+                    AdjacentVertices = CreateArray<int>(checked(indexCount * 2));
+                    GroupCursors = CreateArray<int>(logicalCount);
+                    SortStack = CreateArray<SortRange>(kSortStackCapacity);
+                }
+                catch
+                {
+                    Dispose();
+                    throw;
+                }
+            }
 
             public NativeBuffers(Vector3[] positions, int[] triangles)
             {

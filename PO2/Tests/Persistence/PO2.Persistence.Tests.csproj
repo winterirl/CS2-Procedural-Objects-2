@@ -134,11 +134,15 @@
         <Compile Include="../History/SelectionTransformStubs.cs" />
         <Compile Include="../History/GeometryStubs.cs" />
         <Compile Include="../../Persistence/Format/SnapshotReader.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotReader.Header.cs" />
         <Compile Include="../../Persistence/Format/SnapshotWriter.cs" />
         <Compile Include="../../Persistence/Format/SnapshotContainerTypes.cs" />
         <Compile Include="../../Persistence/Format/SnapshotMetadataCodec.cs" />
         <Compile Include="../../Persistence/Model/SnapshotMetadata.cs" />
         <Compile Include="../../Persistence/SnapshotFileStore.cs" />
+        <Compile Include="../../Persistence/SnapshotFileStore.Root.cs" />
+        <Compile Include="../../Persistence/SnapshotFileStore.Discovery.cs" />
+        <Compile Include="../../Persistence/Maintenance/*.cs" />
         <Compile Include="../../Persistence/RecoveryMessages.cs" />
         <Compile Include="../../Persistence/SaveDiscoveryModels.cs" />
         <Compile Include="../../Interface/Models/SaveTile.cs" />
@@ -160,5 +164,15 @@
         <Compile Include="LodProfileTests.cs" />
         <Compile Include="EncodingTests.cs" />
         <None Include="Fixtures/*.po2" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Include="../../Persistence/Format/EncodedBuffer.cs" />
+        <Compile Include="../../Persistence/Format/FloatStreamPacking.cs" />
+        <Compile Include="../../Persistence/Format/ObjectBlockAssembly.cs" />
+        <Compile Include="../../Persistence/OrderedWorkQueue.cs" />
+        <Compile Include="../../Persistence/LoadingBatch.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotReader.Verification.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotEncodingPipeline.cs" />
+        <Compile Include="../../Persistence/SnapshotFileIO.cs" />
     </ItemGroup>
 </Project>

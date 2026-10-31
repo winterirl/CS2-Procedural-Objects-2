@@ -30,7 +30,6 @@ namespace PO2.Tools.MeshEdit
         private uint m_LastGeometryVersion;
         private ObjectTransform m_LastTransform;
         private bool m_HasLastTransform;
-
         private CameraState m_LastCameraState;
         private bool m_HasLastCameraState;
         public int FrameDataCount => m_FrameDataCount;
@@ -51,8 +50,8 @@ namespace PO2.Tools.MeshEdit
             m_HoveredEdge = null;
             m_HasLastMousePosition = false;
 
-            // Mode changes invalidate projection: Solid visibility also depends on
-            // camera position, facing, and the triangle BVH.
+            // Mode changes invalidate projection:
+            // Solid visibility also depends on camera position, facing, and the triangle BVH.
             m_DirtyFlags |= MeshEditCacheDirtyFlags.Projection | MeshEditCacheDirtyFlags.Hover;
 
             FlushVisualDirtyFlags();
@@ -88,8 +87,8 @@ namespace PO2.Tools.MeshEdit
 
         private void RebuildProjectionCache(ProceduralObject proceduralObject, Camera camera, bool edgeWorldDataChanged)
         {
-            // Edge mode has its own projection cache. Projecting hidden vertex markers
-            // here would repeat expensive work on dense meshes.
+            // Edge mode has its own projection cache.
+            // Projecting hidden vertex markers here would repeat expensive work on dense meshes.
             if (SelectionMode == MeshSelectionMode.Edge)
             {
                 m_FrameDataCount = 0;
@@ -119,8 +118,8 @@ namespace PO2.Tools.MeshEdit
                 logicalVertexCount += proceduralObject.Parts[partIndex].Topology.LogicalVertexCount;
             }
 
-            // One frame entry per logical vertex. Render copies at seams should
-            // still produce one marker and one pick target.
+            // One frame entry per logical vertex.
+            // Render copies at seams should still produce one marker and one pick target.
             EnsureFrameCapacity(logicalVertexCount);
             EnsureProjectionJobCapacity(logicalVertexCount);
 
@@ -157,8 +156,8 @@ namespace PO2.Tools.MeshEdit
 
                     Vector3 worldPosition = proceduralObject.Transform.TransformPoint(localPosition);
 
-                    // Facing is a cheap early-out for Solid mode. The BVH query
-                    // below answers actual occlusion for the survivors.
+                    // Facing is a cheap early-out for Solid mode.
+                    // The BVH query below answers actual occlusion for the survivors.
                     bool facingCandidate = !solidMode || IsVertexFacingCameraCandidate(proceduralObject, part, vertex, worldPosition, camera);
 
                     if (solidMode)
@@ -222,34 +221,42 @@ namespace PO2.Tools.MeshEdit
                     IsOrthographic = camera.orthographic,
                 };
 
-                // Projection and visibility only read the gathered arrays, so
-                // they can run together and meet back at one completion point.
+                // Schedule both before waiting so projection and visibility run together.
                 JobHandle projectionHandle = projectionJob.Schedule(frameIndex, 64);
 
-                JobHandle combinedHandle = projectionHandle;
+                JobHandle visibilityHandle = default;
 
-                if (solidMode)
+                try
                 {
-                    Vector3 localCameraPosition = proceduralObject.Transform.InverseTransformPoint(cameraPosition);
-
-                    Vector3 localCameraForward = proceduralObject.Transform.InverseTransformVector(camera.transform.forward);
-
-                    float forwardMagnitudeSquared = localCameraForward.sqrMagnitude;
-                    if (forwardMagnitudeSquared > 0.00000001f)
+                    if (solidMode)
                     {
-                        localCameraForward /= Mathf.Sqrt(forwardMagnitudeSquared);
+                        Vector3 localCameraPosition = proceduralObject.Transform.InverseTransformPoint(cameraPosition);
+
+                        Vector3 localCameraForward = proceduralObject.Transform.InverseTransformVector(camera.transform.forward);
+
+                        float forwardMagnitudeSquared = localCameraForward.sqrMagnitude;
+                        if (forwardMagnitudeSquared > 0.00000001f)
+                        {
+                            localCameraForward /= Mathf.Sqrt(forwardMagnitudeSquared);
+                        } else
+                        {
+                            localCameraForward = Vector3.forward;
+                        }
+
+                        visibilityHandle = m_SolidVisibilityBvh.ScheduleVisibility(frameIndex, new float3(localCameraPosition.x, localCameraPosition.y, localCameraPosition.z), new float3(localCameraForward.x, localCameraForward.y, localCameraForward.z), camera.orthographic);
                     }
-                    else
+                } finally
+                {
+                    // A failed visibility schedule must not leave projection running.
+                    try
                     {
-                        localCameraForward = Vector3.forward;
+                        projectionHandle.Complete();
+                    } finally
+                    {
+                        visibilityHandle.Complete();
                     }
-
-                    JobHandle visibilityHandle = m_SolidVisibilityBvh.ScheduleVisibility(frameIndex, new float3(localCameraPosition.x, localCameraPosition.y, localCameraPosition.z), new float3(localCameraForward.x, localCameraForward.y, localCameraForward.z), camera.orthographic);
-
-                    combinedHandle = JobHandle.CombineDependencies(projectionHandle, visibilityHandle);
                 }
 
-                combinedHandle.Complete();
 
                 for (int i = 0; i < frameIndex; i++)
                 {
@@ -301,8 +308,8 @@ namespace PO2.Tools.MeshEdit
                 newCapacity *= 2;
             }
 
-            // Persistent buffers avoid native allocations every frame. Growing
-            // geometrically also keeps large imported meshes from thrashing.
+            // Persistent buffers avoid native allocations every frame.
+            // Growing geometrically also keeps large imported meshes from thrashing.
             DisposeProjectionJobBuffers();
 
             m_ProjectionWorldPositions = new NativeArray<float3>(newCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
@@ -468,8 +475,8 @@ namespace PO2.Tools.MeshEdit
             float scaleY = Mathf.Abs(transform.Scale.y) < minimumScaleMagnitude ? (transform.Scale.y < 0f ? -minimumScaleMagnitude : minimumScaleMagnitude) : transform.Scale.y;
             float scaleZ = Mathf.Abs(transform.Scale.z) < minimumScaleMagnitude ? (transform.Scale.z < 0f ? -minimumScaleMagnitude : minimumScaleMagnitude) : transform.Scale.z;
 
-            // Normals use inverse scale, then rotation. Applying TransformVector
-            // directly is wrong as soon as scale is non-uniform.
+            // Normals use inverse scale, then rotation.
+            // Applying TransformVector directly is wrong as soon as scale is non-uniform.
             Vector3 inverseScaledNormal = new Vector3(localNormal.x / scaleX, localNormal.y / scaleY, localNormal.z / scaleZ);
 
             return (transform.Rotation * inverseScaledNormal).normalized;

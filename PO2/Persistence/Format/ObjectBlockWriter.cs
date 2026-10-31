@@ -14,8 +14,6 @@ namespace PO2.Persistence.Format
     // It has no save-lifecycle or runtime-system dependencies.
     internal static class ObjectBlockWriter
     {
-        private static readonly byte[] s_Magic = { (byte)'P', (byte)'O', (byte)'2', (byte)'O' };
-
         internal static byte[] Write(PersistenceObjectData data, SnapshotEncodingOptions options = null, EncodingMetrics metrics = null)
         {
             return WriteForSchema(data, SnapshotFormat.kObjectSchemaVersion, options, metrics);
@@ -24,6 +22,21 @@ namespace PO2.Persistence.Format
         // Kept internal so the compatibility gate can produce exact v2/v3
         // blocks without checking binary fixtures into the project.
         internal static byte[] WriteForSchema(PersistenceObjectData data, ushort schemaVersion, SnapshotEncodingOptions options = null, EncodingMetrics metrics = null)
+        {
+            var context = new EncodingContext(options?.Compression ?? SaveCompression.Compact, metrics);
+            using (var output = new ObjectBlockAssembly(schemaVersion))
+            {
+                output.Append(EncodePrefix(data, schemaVersion, context));
+                foreach (var part in data.Parts)
+                {
+                    using (var prepared = PreparePart(part, context)) output.Append(prepared);
+                }
+                output.Append(EncodeSuffix(data, schemaVersion, context));
+                return output.Finish(out _).ToArray();
+            }
+        }
+
+        private static void ValidateObject(PersistenceObjectData data, ushort schemaVersion)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
             if (!SnapshotFormat.IsSupportedObjectSchemaVersion(schemaVersion))
@@ -74,39 +87,31 @@ namespace PO2.Persistence.Format
             }
 
             DeformationCodec.Validate(data.Deformations, data.Parts);
+        }
 
-            // Reserve the header in the same buffer as the body. Fill it after
-            // encoding, so the checksum does not need a second copy of the object.
-            var context = new EncodingContext(options?.Compression ?? SaveCompression.Compact, metrics);
-            using (MemoryStream output = new MemoryStream())
+        internal static EncodedBuffer EncodePrefix(PersistenceObjectData data, ushort schemaVersion, EncodingContext context)
+        {
+            ValidateObject(data, schemaVersion);
+            using (var output = new MemoryStream())
             {
-                output.SetLength(SnapshotFormat.kObjectBlockHeaderSize);
-                output.Position = SnapshotFormat.kObjectBlockHeaderSize;
                 SnapshotBinary.WriteGuid(output, data.PersistentId);
                 WriteMetadata(output, data, schemaVersion, context);
                 SnapshotBinary.WriteUInt32(output, checked((uint)data.Parts.Length));
-                PartEncoding.Write(output, data.Parts, options, metrics);
+                return EncodedBuffer.FromStream(output);
+            }
+        }
 
-                if (schemaVersion >= SnapshotFormat.kDeformationObjectSchemaVersion)
+        internal static EncodedBuffer EncodeSuffix(PersistenceObjectData data, ushort schemaVersion, EncodingContext context)
+        {
+            if (schemaVersion < SnapshotFormat.kDeformationObjectSchemaVersion) return Array.Empty<byte>();
+            using (var output = new MemoryStream())
+            {
+                using (var writer = new BinaryWriter(output, Encoding.UTF8, true))
                 {
-                    using (var writer = new BinaryWriter(output, Encoding.UTF8, true))
-                    {
-                        writer.Write(data.Deformations.Length);
-                        foreach (var cage in data.Deformations) DeformationCodec.Write(writer, cage, context);
-                    }
+                    writer.Write(data.Deformations.Length);
+                    foreach (var cage in data.Deformations) DeformationCodec.Write(writer, cage, context);
                 }
-
-                int bodyLength = checked((int)(output.Length - SnapshotFormat.kObjectBlockHeaderSize));
-                if (output.Length > SnapshotFormat.kMaxStoredObjectBytes)
-                    throw new InvalidDataException("Encoded object block exceeds safety ceiling.");
-                uint crc = Crc32.Compute(output.GetBuffer(), SnapshotFormat.kObjectBlockHeaderSize, bodyLength);
-                output.Position = 0;
-                output.Write(s_Magic, 0, s_Magic.Length);
-                SnapshotBinary.WriteUInt16(output, schemaVersion);
-                SnapshotBinary.WriteUInt16(output, 0);
-                SnapshotBinary.WriteUInt32(output, checked((uint)bodyLength));
-                SnapshotBinary.WriteUInt32(output, crc);
-                return output.ToArray();
+                return EncodedBuffer.FromStream(output);
             }
         }
 
@@ -114,7 +119,7 @@ namespace PO2.Persistence.Format
         {
             // Names, transforms, materials, and Surface Areas are grouped before the large mesh streams.
             // One codec covers the whole metadata section.
-            byte[] raw;
+            EncodedBuffer raw;
             using (MemoryStream metadata = new MemoryStream())
             {
                 WriteString(metadata, data.Name);
@@ -142,13 +147,13 @@ namespace PO2.Persistence.Format
                     WritePartMetadata(metadata, data.Parts[i], schemaVersion);
                 }
 
-                raw = metadata.ToArray();
+                raw = EncodedBuffer.FromStream(metadata);
             }
 
-            byte[] deflated = raw.Length >= 64 ? context.Deflate(raw) : null;
+            EncodedBuffer deflated = raw.Length >= 64 ? context.Deflate(raw) : default;
             SnapshotCodec codec = SnapshotCodec.Raw;
-            byte[] stored = raw;
-            if (deflated != null && deflated.Length < raw.Length)
+            EncodedBuffer stored = raw;
+            if (deflated.Array != null && deflated.Length < raw.Length)
             {
                 codec = SnapshotCodec.Deflate;
                 stored = deflated;
@@ -157,7 +162,7 @@ namespace PO2.Persistence.Format
             stream.WriteByte((byte)codec);
             SnapshotBinary.WriteUInt32(stream, checked((uint)raw.Length));
             SnapshotBinary.WriteUInt32(stream, checked((uint)stored.Length));
-            stream.Write(stored, 0, stored.Length);
+            stored.WriteTo(stream);
         }
 
         private static void WriteCustomOrientations(Stream stream, PersistenceCustomOrientationData[] orientations)
@@ -243,6 +248,11 @@ namespace PO2.Persistence.Format
         }
 
         internal static void WritePart(Stream stream, PersistencePartData part, EncodingContext context)
+        {
+            using (var prepared = PreparePart(part, context)) prepared.WriteTo(stream);
+        }
+
+        internal static PreparedPart PreparePart(PersistencePartData part, EncodingContext context)
         {
             if (part == null) throw new InvalidDataException("Persistence part is null.");
             int renderVertexCount = part.Vertices != null ? part.Vertices.Length : 0;
@@ -377,35 +387,8 @@ namespace PO2.Persistence.Format
             Add(streams, ObjectBlockCodec.EncodeStructuralCornerCounts(cornerCounts, context));
             Add(streams, ObjectBlockCodec.EncodeStructuralCorners(structuralCorners, renderVertexCount, context));
 
-            SnapshotBinary.WriteUInt32(stream, checked((uint)renderVertexCount));
-            SnapshotBinary.WriteUInt32(stream, checked((uint)part.LogicalVertexCount));
-            SnapshotBinary.WriteUInt32(stream, checked((uint)triangleCount));
-            SnapshotBinary.WriteUInt32(stream, checked((uint)structuralFaceCount));
-            SnapshotBinary.WriteUInt32(stream, checked((uint)part.SurfaceAreas.Length));
-            SnapshotBinary.WriteUInt16(stream, checked((ushort)streams.Count));
-            SnapshotBinary.WriteUInt16(stream, 0);
-
-            // Descriptors come first, then one contiguous payload region.
-            // Readers can validate every offset before copying/decoding a stream.
-            int payloadOffset = 0;
-            for (int i = 0; i < streams.Count; i++)
-            {
-                EncodedStream encoded = streams[i];
-                stream.WriteByte((byte)encoded.Semantic);
-                stream.WriteByte((byte)encoded.Codec);
-                SnapshotBinary.WriteUInt16(stream, 0);
-                SnapshotBinary.WriteUInt32(stream, checked((uint)encoded.ElementCount));
-                SnapshotBinary.WriteUInt32(stream, checked((uint)encoded.DecodedByteLength));
-                SnapshotBinary.WriteUInt32(stream, checked((uint)encoded.Payload.Length));
-                SnapshotBinary.WriteUInt32(stream, checked((uint)payloadOffset));
-                payloadOffset = checked(payloadOffset + encoded.Payload.Length);
-            }
-
-            for (int i = 0; i < streams.Count; i++)
-            {
-                byte[] payload = streams[i].Payload;
-                stream.Write(payload, 0, payload.Length);
-            }
+            return new PreparedPart(renderVertexCount, part.LogicalVertexCount, triangleCount,
+                structuralFaceCount, part.SurfaceAreas.Length, streams);
         }
 
         private static void Add(List<EncodedStream> streams, EncodedStream encoded)

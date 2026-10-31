@@ -1,0 +1,85 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+        <!-- Unused facade fields are intentional; match Unity's lowercase math type. -->
+        <NoWarn>$(NoWarn);CS0649;CS8981</NoWarn>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="../../Conversion/ConvertedStructuralTopologyBuilder.cs" />
+        <Compile Include="../../Conversion/ConvertedFaceInference.cs" />
+        <Compile Include="../../Materials/GeneratedMappingSeed.cs" />
+        <Compile Include="../../Rendering/Mapping/GeneratedMapping.cs" />
+        <Compile Include="../../Rendering/Mapping/SurfaceTopology.cs" />
+        <Compile Include="../../Geometry/MeshPart.PersistenceRestore.cs" />
+        <Compile Include="../../Geometry/Topology/MeshTopology.Persistence.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralTopology.Persistence.cs" />
+        <Compile Include="../../Geometry/Topology/PackedTopologyData.cs" />
+        <Compile Include="../../Conversion/ConvertedStructuralTopologyBuilder.Restore.cs" />
+        <Compile Include="../../Conversion/ConvertedStructuralTopologyResult.cs" />
+        <Compile Include="../../Persistence/PreparedTopology/*.cs" />
+
+        <Compile Include="../../Geometry/Topology/MeshTopology.cs" />
+        <Compile Include="../../Geometry/Topology/NativeMeshTopologyBuilder.cs" />
+        <Compile Include="../../Geometry/Topology/NativeMeshTopologyBuilder.RestoreSort.cs" />
+        <Compile Include="../../Geometry/Topology/Vertex.cs" />
+        <Compile Include="../../Geometry/Topology/LogicalEdge.cs" />
+        <Compile Include="../../Geometry/Topology/IndexSpan.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralFace.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralTopology.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralTopology.Mirror.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralEdge.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralFaceTriangles.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralFaceTriangleResolver.cs" />
+        <Compile Include="../../Geometry/SurfaceAreaGeometryBuilder.cs" />
+        <Compile Include="../../Materials/VertexAttributeFlags.cs" />
+        <Compile Include="../../Persistence/LoadingBatch.cs" />
+        <Compile Include="../../Persistence/SnapshotFileStore.cs" />
+        <Compile Include="../../Persistence/SnapshotFileStore.Root.cs" />
+        <Compile Include="../../Persistence/SnapshotFileIO.cs" />
+        <Compile Include="../../Persistence/OrderedWorkQueue.cs" />
+        <Compile Include="../../Persistence/Maintenance/SnapshotAccessGate.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotBinary.cs" />
+        <Compile Include="../../Persistence/Format/EncodedBuffer.cs" />
+        <Compile Include="../../Persistence/Format/FloatStreamPacking.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotFormat.cs" />
+        <Compile Include="../../Persistence/Format/ObjectBlockCodec.cs" />
+        <Compile Include="../../Persistence/Format/Crc32.cs" />
+        <Compile Include="../../Persistence/Model/PersistenceSnapshotData.cs" />
+        <Compile Include="../../Persistence/Model/SnapshotModelRestorer.cs" />
+        <Compile Include="../../Persistence/Model/SnapshotMetadata.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotReader.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotReader.Verification.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotReader.Header.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotContainerTypes.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotWriter.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotMetadataCodec.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotObjectMetrics.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotValidation.cs" />
+        <Compile Include="../../Persistence/Format/ObjectBlockReader.cs" />
+        <Compile Include="../../Persistence/Format/ObjectBlockWriter.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotEncoding.cs" />
+        <Compile Include="../../Persistence/Format/SnapshotEncodingPipeline.cs" />
+        <Compile Include="../../Persistence/Format/ObjectBlockAssembly.cs" />
+        <Compile Include="../../Persistence/Format/GeneratedMappingSeedCodec.cs" />
+        <Compile Include="../../Persistence/Format/LodProfileCodec.cs" />
+        <Compile Include="../../Core/Lod/LodProfile.cs" />
+        <Compile Include="../../Core/Lod/LodLevelSettings.cs" />
+        <Compile Include="../../Core/Lod/LodMethod.cs" />
+        <Compile Include="../../Core/Lod/LodTransitionSettings.cs" />
+        <Compile Include="../../Core/Deformation/DeformationCage.cs" />
+        <Compile Include="../../Core/Deformation/DeformationRecipe.cs" />
+        <Compile Include="../../Persistence/Format/DeformationCodec.cs" />
+        <Compile Include="../../Geometry/Topology/StructuralTopologySource.cs" />
+        <Compile Include="../../Materials/MaterialSourceKind.cs" />
+        <Compile Include="../../Materials/VanillaSpecialMaterialKind.cs" />
+        <Compile Include="../../Materials/TextureMappingMode.cs" />
+        <Compile Include="../../Materials/NativeWindowKind.cs" />
+        <Compile Include="../../Materials/ColorMaskMode.cs" />
+        <Compile Include="../../Rendering/TopologyRendererPreparation.cs" />
+    </ItemGroup>
+    <ItemGroup><None Include="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+</Project>

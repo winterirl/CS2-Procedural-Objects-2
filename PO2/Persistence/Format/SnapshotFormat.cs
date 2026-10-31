@@ -30,7 +30,9 @@ namespace PO2.Persistence.Format
      * metadata section at byte 80 and sets directoryOffset to its end.
      * Metadata prefix, 16 bytes: PO2M[4], schema u16, flags u16 (0),
      * payloadLength u32, payloadCrc32 u32. See SnapshotMetadataCodec.
-     * Header layout/checksum and all object encodings remain unchanged.
+     * Container 3 appends optional prepared topology after the required blocks.
+     * See PreparedTopologyExtension and PreparedTopologyCodec for that layout.
+     * Header layout/checksum and all required object encodings remain unchanged.
      *
      * Directory entry, 52 bytes each:
      *   0   persistentId[16]
@@ -95,6 +97,9 @@ namespace PO2.Persistence.Format
 
         internal const ushort kLegacyContainerVersion = 1;
         internal const ushort kContainerVersion = 2;
+        internal const ushort kPreparedContainerVersion = 3;
+        internal static bool IsSupportedContainerVersion(ushort version) => version >= kLegacyContainerVersion && version <= kPreparedContainerVersion;
+        internal static bool HasMetadata(ushort version) => version == kContainerVersion || version == kPreparedContainerVersion;
         internal const ushort kMetadataSchemaVersion = 1;
         internal const int kMetadataPrefixSize = 16;
         internal const int kMaxMetadataPayloadBytes = 64 * 1024;

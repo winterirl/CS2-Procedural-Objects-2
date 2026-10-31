@@ -55,6 +55,9 @@ namespace PO2.Rendering.Mapping
         private Vector2[] m_GeneratedUVs = Array.Empty<Vector2>();
 
         private readonly SeededMapping m_Seeded;
+        private readonly GeneratedMappingSeed m_SourceSeed;
+        internal bool MatchesSource(MeshData mesh, VertexAttributeFlags attributes, GeneratedMappingSeed seed) =>
+            m_UseSurfaceUVs == HasSurfaceUVs(mesh, attributes) && (m_UseSurfaceUVs || ReferenceEquals(m_SourceSeed, seed));
         internal bool UsesSurfaceUVs => m_UseSurfaceUVs;
         internal GeneratedMappingSeed PreservedSeed => m_Seeded?.Seed;
         internal int[] TriangleCharts => m_TriangleChartIds;
@@ -73,11 +76,30 @@ namespace PO2.Rendering.Mapping
         public int[] Triangles => m_GeneratedTriangles;
         internal int[] SourceVertexIndices => m_GeneratedSourceVertexIndices;
 
-        public GeneratedMapping(MeshData mesh, MeshTopology topology, VertexAttributeFlags attributes = VertexAttributeFlags.None, GeneratedMappingSeed seed = null, int[] sourceIndices = null)
+        private static bool HasSurfaceUVs(MeshData mesh, VertexAttributeFlags attributes) =>
+            (attributes & VertexAttributeFlags.SurfaceUVCoordinates) != 0 && mesh.UV0 != null && mesh.UV0.Length == mesh.Vertices.Length;
+
+        internal static GeneratedMapping Create(MeshData mesh, VertexAttributeFlags attributes,
+            GeneratedMappingSeed seed, int[] sourceIndices, out MeshTopology topology)
         {
-            m_UseSurfaceUVs = (attributes & VertexAttributeFlags.SurfaceUVCoordinates) != 0 && mesh.UV0 != null && mesh.UV0.Length == mesh.Vertices.Length;
+            bool surfaceUVs = HasSurfaceUVs(mesh, attributes);
+            // Bind once. Merely having a seed does not mean it fits this area.
+            SeededMapping bound = surfaceUVs ? null : seed?.Bind(mesh, sourceIndices);
+            topology = surfaceUVs || bound != null ? null : MeshTopology.Build(mesh);
+            return new GeneratedMapping(mesh, topology, surfaceUVs, bound, seed);
+        }
+
+        public GeneratedMapping(MeshData mesh, MeshTopology topology, VertexAttributeFlags attributes = VertexAttributeFlags.None, GeneratedMappingSeed seed = null, int[] sourceIndices = null)
+            : this(mesh, topology, HasSurfaceUVs(mesh, attributes), HasSurfaceUVs(mesh, attributes) ? null : seed?.Bind(mesh, sourceIndices), seed)
+        {
+        }
+
+        private GeneratedMapping(MeshData mesh, MeshTopology topology, bool surfaceUVs, SeededMapping seeded, GeneratedMappingSeed sourceSeed)
+        {
+            m_SourceSeed = sourceSeed;
+            m_UseSurfaceUVs = surfaceUVs;
             if (m_UseSurfaceUVs) return;
-            m_Seeded = seed?.Bind(mesh, sourceIndices);
+            m_Seeded = seeded;
             if (m_Seeded != null)
             {
                 m_GeneratedVertices = m_Seeded.Vertices;
@@ -88,6 +110,7 @@ namespace PO2.Rendering.Mapping
                 return;
             }
 
+            if (topology == null) throw new ArgumentNullException(nameof(topology));
             m_SurfaceTopology = SurfaceTopology.Build(mesh, topology);
 
             int triangleCount = m_SurfaceTopology.TriangleCount;
@@ -129,6 +152,7 @@ namespace PO2.Rendering.Mapping
                 return rebuild;
             }
 
+            if (topology == null) throw new ArgumentNullException(nameof(topology));
             CalculateTriangleNormals(mesh);
 
             // Deformation can change which faces still belong in one chart.

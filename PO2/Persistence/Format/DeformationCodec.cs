@@ -146,7 +146,7 @@ namespace PO2.Persistence.Format
             writer.Write(value.ElementCount);
             writer.Write(value.DecodedByteLength);
             writer.Write(value.Payload.Length);
-            writer.Write(value.Payload);
+            writer.Write(value.Payload.Array, value.Payload.Offset, value.Payload.Length);
         }
 
         private static EncodedStream ReadStream(BinaryReader reader, SnapshotStreamSemantic semantic, int stride, ref long remaining)

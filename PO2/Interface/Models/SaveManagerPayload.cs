@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Colossal.UI.Binding;
 using PO2.Interface.Bindings;
@@ -18,19 +19,28 @@ namespace PO2.Interface.Models
         private readonly LocalizedText m_Status;
         private readonly LocalizedText[] m_Issues;
         private readonly string m_ConfirmationToken;
+        private readonly SaveManagerPage m_Page;
+        private readonly int m_IssueCount;
 
         private SaveManagerPayload()
         {
         }
 
-        internal SaveManagerPayload(SaveManager manager, IEnumerable<string> protectedKeys, LocalizedText status)
+        internal SaveManagerPayload(SaveManager manager, SaveManagerPage page, IEnumerable<string> protectedKeys, LocalizedText status)
         {
             m_Available = true;
             m_Revision = manager.Revision;
-            m_Saves = SaveTile.Capture(manager.Discovery.Saves);
+            m_Page = page;
+            m_IssueCount = manager.Discovery.RejectedFileCount;
+            m_Saves = SaveTile.Capture(page.Saves);
             m_ScanSucceeded = manager.Discovery.ScanSucceeded;
             m_CatalogComplete = manager.CatalogComplete;
-            m_ProtectedKeys = new List<string>(protectedKeys).ToArray();
+            var protectedSet = new HashSet<string>(protectedKeys, StringComparer.OrdinalIgnoreCase);
+            var visibleProtected = new List<string>();
+            foreach (SaveRecord save in page.Saves)
+                if (protectedSet.Contains(save.FileKey))
+                    visibleProtected.Add(save.FileKey);
+            m_ProtectedKeys = visibleProtected.ToArray();
             m_Status = status;
             m_Issues = new LocalizedText[manager.Discovery.RejectedFiles.Count];
             for (int i = 0; i < m_Issues.Length; i++)
@@ -53,6 +63,41 @@ namespace PO2.Interface.Models
             writer.TypeBegin("PO2.SaveManager");
             writer.PropertyName("revision");
             writer.Write(m_Revision);
+            writer.PropertyName("page");
+            writer.Write(m_Page.Index);
+            writer.PropertyName("pageCount");
+            writer.Write(Math.Max(1, (m_Page.MatchCount + SaveManagerPage.Size - 1) / SaveManagerPage.Size));
+            writer.PropertyName("matchCount");
+            writer.Write(m_Page.MatchCount);
+            writer.PropertyName("totalCount");
+            writer.Write(m_Page.TotalCount);
+            writer.PropertyName("totalBytes");
+            writer.Write(m_Page.TotalBytes);
+            writer.PropertyName("pageBytes");
+            writer.Write(m_Page.PageBytes);
+            writer.PropertyName("session");
+            writer.Write(m_Page.Session);
+            writer.PropertyName("filter");
+            writer.Write(m_Page.Status);
+            writer.PropertyName("oldest");
+            writer.Write(m_Page.Oldest);
+            writer.PropertyName("issueCount");
+            writer.Write(m_IssueCount);
+            writer.PropertyName("lineages");
+            writer.ArrayBegin((uint)m_Page.Lineages.Length);
+            foreach (SaveLineage group in m_Page.Lineages)
+            {
+                writer.TypeBegin("PO2.SaveLineage");
+                writer.PropertyName("id");
+                writer.Write(group.Id.ToString("D"));
+                writer.PropertyName("name");
+                writer.Write(group.Name ?? "");
+                writer.PropertyName("count");
+                writer.Write(group.Count);
+                writer.TypeEnd();
+            }
+
+            writer.ArrayEnd();
             writer.PropertyName("saves");
             writer.Write<SaveTile>(m_Saves);
             writer.PropertyName("scanSucceeded");

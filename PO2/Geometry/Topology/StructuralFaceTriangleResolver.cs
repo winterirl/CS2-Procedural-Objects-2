@@ -37,15 +37,13 @@ namespace PO2.Geometry.Topology
             int triangleCount = triangles.Length / 3;
             faceTriangles = new StructuralFaceTriangles[faces.Count];
             triangleFaceIds = new int[triangleCount];
+            if (TryBuildSequentialMap(faces, triangles, faceTriangles, triangleFaceIds)) return;
+
             for (int triangleId = 0; triangleId < triangleFaceIds.Length; triangleId++)
             {
                 triangleFaceIds[triangleId] = -1;
             }
-
-            if (faces.Count == 0)
-            {
-                return;
-            }
+            if (faces.Count == 0) return;
 
             // One linked chain per oriented triangle key avoids a List<int> allocation
             // for every unique triangle, while still handling exact duplicate records in stable triangle order.
@@ -95,6 +93,41 @@ namespace PO2.Geometry.Topology
                 triangleFaceIds[firstTriangleId] = faceId;
                 triangleFaceIds[secondTriangleId] = faceId;
             }
+        }
+
+        private static bool TryBuildSequentialMap(IReadOnlyList<StructuralFace> faces,
+            int[] triangles, StructuralFaceTriangles[] faceTriangles, int[] triangleFaceIds)
+        {
+            int triangleCount = triangleFaceIds.Length;
+            int cursor = 0;
+            // Prove the whole stream before writing anything. A partial match
+            // must leave the ordinary duplicate-aware resolver a clean slate.
+            for (int i = 0; i < faces.Count; i++)
+            {
+                var face = faces[i];
+                if (face.Id != i || (!face.IsTriangle && !face.IsQuad)) return false;
+                int count = face.IsQuad ? 2 : 1;
+                if (count > triangleCount - cursor) return false;
+                int offset = cursor * 3;
+                int a = face.GetRenderVertexIndex(0);
+                int b = face.GetRenderVertexIndex(1);
+                int c = face.GetRenderVertexIndex(2);
+                if (triangles[offset] != a || triangles[offset + 1] != b || triangles[offset + 2] != c) return false;
+                if (face.IsQuad && (triangles[offset + 3] != a || triangles[offset + 4] != c
+                    || triangles[offset + 5] != face.GetRenderVertexIndex(3))) return false;
+                cursor += count;
+            }
+            if (cursor != triangleCount) return false;
+
+            cursor = 0;
+            for (int i = 0; i < faces.Count; i++)
+            {
+                bool quad = faces[i].IsQuad;
+                faceTriangles[i] = new StructuralFaceTriangles(cursor, quad ? cursor + 1 : -1, quad ? 2 : 1);
+                triangleFaceIds[cursor++] = i;
+                if (quad) triangleFaceIds[cursor++] = i;
+            }
+            return true;
         }
 
         private static bool TryTakeTriangle(Dictionary<OrientedTriangleKey, int> availableHeads, int[] nextTriangleIds, OrientedTriangleKey key, out int triangleId)

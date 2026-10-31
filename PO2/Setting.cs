@@ -46,9 +46,18 @@ namespace PO2
         [SettingsUISection(kSection, kSavingGroup)]
         public SaveCompression SaveCompression { get; set; } = SaveCompression.Compact;
 
+        [SettingsUISection(kSection, kSavingGroup)]
+        public bool CleanupOrphanedAutosaves { get; set; } = true;
+
+        [SettingsUISection(kSection, kSavingGroup)]
+        [SettingsUISlider(min = 0, max = 20, step = 1, updateOnDragEnd = true)]
+        public int RetainedOrphanedAutosaves { get; set; } = 3;
+
         public override void SetDefaults()
         {
             SaveCompression = SaveCompression.Compact;
+            CleanupOrphanedAutosaves = true;
+            RetainedOrphanedAutosaves = 3;
             UndoHistorySteps = HistoryLimits.kDefaultCapacity;
             LOD1Distance = 1.0f;
             LOD2Distance = 1.0f;
